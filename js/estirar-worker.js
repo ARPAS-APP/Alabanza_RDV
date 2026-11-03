@@ -11,10 +11,10 @@
 function estirar(canales, rate, sr) {
   const len = canales[0].length;
   if (Math.abs(rate - 1) < 1e-3) return canales.map(c => c.slice());
-  const N = sr > 32000 ? 2048 : 1024;   // ~46 ms
+  const N = sr > 32000 ? 2048 : 1024;   // ~46 ms a 44,1 kHz · ~46 ms a 22 kHz
   const Hs = N / 2;                     // salto de salida (50 % de superposición)
   const T = Math.round(sr * 0.012);     // radio de búsqueda (~12 ms)
-  const D = 4;                          // la búsqueda se hace sobre una versión reducida (más rápido)
+  const D = sr > 32000 ? 4 : 2;         // la búsqueda se hace sobre una versión reducida (más rápido)
   const L = Math.floor(Hs / D);         // largo de la comparación en la versión reducida
   const outLen = Math.floor(len / rate);
 

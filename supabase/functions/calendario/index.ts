@@ -5,7 +5,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-const APP = 'https://yanisgabriela5-cyber.github.io/Alabanza_RDV/';
+const APP = 'https://arpas-app.github.io/Alabanza_RDV/';
 const ROLES: Record<string, string> = {
   voz: 'Voz', piano: 'Piano / Teclado', guitarra: 'Guitarra acústica', guitarra_electrica: 'Guitarra eléctrica',
   bajo: 'Bajo', bateria: 'Batería', percusion: 'Percusión menor', otro: 'Otro',

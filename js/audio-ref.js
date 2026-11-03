@@ -30,7 +30,9 @@ export function desbloquearAudio() { const c = contexto(); if (c.state === 'susp
  * tempo: 1 = original, 0.9 = 10 % más lento. semis: semitonos (+ sube, − baja).
  */
 export function crearReproductor(onCambio = () => {}) {
-  let original = null;          // AudioBuffer original
+  // Para no agotar la memoria del celular (iPhone cierra la página si pasa de ~300 MB),
+  // el audio se guarda en mono y a 22 kHz: suficiente para ensayar y pesa 4 veces menos.
+  let original = null;          // { mono: Float32Array, sr, duration }
   let url = null;
   let semis = 0, tempo = 1;
   let listo = null;             // { buffer, a, r } buffer estirado para el ajuste actual
@@ -79,15 +81,14 @@ export function crearReproductor(onCambio = () => {}) {
     const rr = r(), a = tempo / rr;              // estirar a, luego tocar a velocidad rr → tempo final = a·rr
     procesando = true; avisar();
     try {
-      let buffer = original;
+      let datos = original.mono;
       if (Math.abs(a - 1) > 1e-3) {
-        const canales = [];
-        for (let i = 0; i < original.numberOfChannels; i++) canales.push(original.getChannelData(i).slice());
-        const res = await estirarEnFondo(canales, a, original.sampleRate);
+        [datos] = await estirarEnFondo([original.mono], a, original.sr);
         if (n !== trabajo) return;
-        buffer = contexto().createBuffer(res.length, res[0].length, original.sampleRate);
-        res.forEach((c, i) => buffer.copyToChannel(c, i));
       }
+      const buffer = contexto().createBuffer(1, datos.length, original.sr);
+      buffer.copyToChannel(datos, 0);
+      datos = null;
       if (n !== trabajo) return;
       const seguia = tocando;
       if (seguia) { posOrig = posicion(); detenerFuente(); tocando = false; }
@@ -109,10 +110,18 @@ export function crearReproductor(onCambio = () => {}) {
         const resp = await fetch(u);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const datos = await resp.arrayBuffer();
-        original = await new Promise((res, rej) => {
-          const p = contexto().decodeAudioData(datos, res, rej);
+        const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const SR = 22050;
+        const dec = await new Promise((res, rej) => {
+          const p = new Off(1, 1, SR).decodeAudioData(datos, res, rej);   // se decodifica ya a 22 kHz
           if (p?.then) p.then(res, rej);
         });
+        const mono = new Float32Array(dec.length);
+        for (let ch = 0; ch < dec.numberOfChannels; ch++) {
+          const x = dec.getChannelData(ch);
+          for (let i = 0; i < x.length; i++) mono[i] += x[i] / dec.numberOfChannels;
+        }
+        original = { mono, sr: dec.sampleRate, duration: dec.duration };
         cargando = false;
         await preparar();
       } catch (e) {
