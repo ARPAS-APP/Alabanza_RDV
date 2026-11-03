@@ -760,3 +760,43 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .hist-det summary { cursor: pointer; color: var(--texto-3); }
 .hist-det ol { margin: 6px 0 0; padding-left: 22px; }
 .hist-det li { margin: 3px 0; }
+
+/* ---- colores por parte de la canción (estrofa, coro, puente…) ---- */
+:root {
+  --sec-estrofa: #a99cf5; --sec-estrofa-bg: rgba(169, 156, 245, .16);
+  --sec-precoro: #5fd3b0; --sec-precoro-bg: rgba(95, 211, 176, .15);
+  --sec-coro: #f28fb4;    --sec-coro-bg: rgba(242, 143, 180, .16);
+  --sec-puente: #f2b45a;  --sec-puente-bg: rgba(242, 180, 90, .16);
+  --sec-inst: #a6a6a6;    --sec-inst-bg: rgba(255, 255, 255, .09);
+  --sec-final: #7fb4f0;   --sec-final-bg: rgba(127, 180, 240, .15);
+}
+:root[data-tema="claro"] {
+  --sec-estrofa: #4b3fae; --sec-estrofa-bg: #ecebfd;
+  --sec-precoro: #0b6b52; --sec-precoro-bg: #dff4ec;
+  --sec-coro: #a12e5c;    --sec-coro-bg: #fbe6ee;
+  --sec-puente: #8a5208;  --sec-puente-bg: #faecd6;
+  --sec-inst: #545a6b;    --sec-inst-bg: #ece8df;
+  --sec-final: #1f5fa8;   --sec-final-bg: #e3eefa;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema="oscuro"]) {
+    --sec-estrofa: #4b3fae; --sec-estrofa-bg: #ecebfd;
+    --sec-precoro: #0b6b52; --sec-precoro-bg: #dff4ec;
+    --sec-coro: #a12e5c;      --sec-coro-bg: #fbe6ee;
+    --sec-puente: #8a5208;    --sec-puente-bg: #faecd6;
+    --sec-inst: #545a6b;      --sec-inst-bg: #ece8df;
+    --sec-final: #1f5fa8;     --sec-final-bg: #e3eefa;
+  }
+}
+.letra .l-seccion[class*="sec-"] > span {
+  display: inline-block; padding: .2em .7em; border-radius: 999px; font-weight: 800;
+  color: var(--c); background: var(--cb);
+}
+.sec-estrofa { --c: var(--sec-estrofa); --cb: var(--sec-estrofa-bg); }
+.sec-precoro { --c: var(--sec-precoro); --cb: var(--sec-precoro-bg); }
+.sec-coro    { --c: var(--sec-coro);    --cb: var(--sec-coro-bg); }
+.sec-puente  { --c: var(--sec-puente);  --cb: var(--sec-puente-bg); }
+.sec-inst    { --c: var(--sec-inst);    --cb: var(--sec-inst-bg); }
+.sec-final   { --c: var(--sec-final);   --cb: var(--sec-final-bg); }
+.cf-sec-h[class*="sec-"] .cf-nombre { color: var(--c); font-weight: 800; }
+.cf-sec-h[class*="sec-"] .cf-letra { background: var(--c); color: var(--bg); }

@@ -134,6 +134,19 @@ export function etiquetaSeccion(linea) {
   return null;
 }
 
+/** Tipo de parte para darle color: estrofa, precoro, coro, puente, inst (intro/interludio) o final. */
+export function tipoSeccion(nombre) {
+  const t = String(nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/pre[\s-]?(coro|chorus)/.test(t)) return 'precoro';
+  if (/post[\s-]?(coro|chorus)/.test(t)) return 'coro';
+  if (/coro|estribillo|refran|chorus/.test(t)) return 'coro';
+  if (/puente|bridge/.test(t)) return 'puente';
+  if (/intro|interlud|instrumental|solo|turnaround/.test(t)) return 'inst';
+  if (/final|outro|coda|ending|tag|vamp/.test(t)) return 'final';
+  if (/estrofa|verso|verse|parte/.test(t)) return 'estrofa';
+  return '';
+}
+
 /**
  * Ordena formatos comunes antes de leer la letra:
  *  "[Intro] Fm  Db  Eb" / "Intro: Fm Db Eb" / "CORO Fm Db" → "Intro:" + línea de acordes.
@@ -176,7 +189,7 @@ export function renderLetra(texto, { semis = 0, bemoles = false, acordes = true,
   for (const linea of lineas) {
     if (!linea.trim()) { html.push('<div class="l-vacia"></div>'); continue; }
     const sec = etiquetaSeccion(linea);
-    if (sec !== null) { html.push(`<div class="l-seccion">${esc(sec)}</div>`); continue; }
+    if (sec !== null) { const tipo = tipoSeccion(sec); html.push(`<div class="l-seccion${tipo ? ' sec-' + tipo : ''}"><span>${esc(sec)}</span></div>`); continue; }
 
     if (esLineaDeAcordes(linea)) {
       if (acordes) html.push(`<div class="l-acordes mono">${esc(transponerLineaDeAcordes(linea, semis, bemoles, latino))}</div>`);

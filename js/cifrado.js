@@ -11,7 +11,7 @@
 // - Cada "|" separa compases. Varios acordes en un compás: separados por espacio.
 // - "%" repite el compás anterior. Cada renglón empieza una fila nueva (4 compases por fila).
 
-import { transponerAcorde, esAcorde, esLineaDeAcordes, etiquetaSeccion, aCorchetes, cifrado as notaLatina } from './acordes.js';
+import { transponerAcorde, esAcorde, esLineaDeAcordes, etiquetaSeccion, tipoSeccion, aCorchetes, cifrado as notaLatina } from './acordes.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const POR_FILA = 4;
@@ -191,7 +191,7 @@ export function renderCifrado(texto, { semis = 0, bemoles = false, latino = fals
   };
   return `<div class="cf">${secs.map(s => `
     <div class="cf-sec">
-      ${s.letra || s.nombre ? `<div class="cf-sec-h">${s.letra ? `<span class="cf-letra">${esc(s.letra)}</span>` : ''}${s.nombre ? `<span class="cf-nombre">${esc(s.nombre)}</span>` : ''}</div>` : ''}
+      ${s.letra || s.nombre ? `<div class="cf-sec-h${tipoSeccion(s.nombre) ? ' sec-' + tipoSeccion(s.nombre) : ''}">${s.letra ? `<span class="cf-letra">${esc(s.letra)}</span>` : ''}${s.nombre ? `<span class="cf-nombre">${esc(s.nombre)}</span>` : ''}</div>` : ''}
       ${s.filas.map(f => `<div class="cf-fila">${Array.from({ length: POR_FILA }, (_, i) => comp(f[i])).join('')}</div>`).join('')}
     </div>`).join('')}</div>`;
 }
