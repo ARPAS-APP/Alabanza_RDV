@@ -747,3 +747,16 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 .ar-bpm { background: none; border: 0; color: var(--texto); font: inherit; font-weight: 800; font-size: 15px; min-width: 70px; cursor: pointer; }
 .ar-ayuda { margin: 6px 0 0; font-size: 12px; }
 .spinner.sm { width: 16px; height: 16px; border-width: 2px; display: inline-block; margin: 0; vertical-align: middle; }
+
+/* ---- historial del repertorio ---- */
+.hist-lista { display: flex; flex-direction: column; gap: 8px; }
+.hist-v { padding: 10px 12px; margin: 0; }
+.hist-v.actual { border: 1px solid var(--acento); }
+.hist-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+.hist-cab small { color: var(--texto-3); font-size: 12px; white-space: nowrap; }
+.hist-cambios { margin: 6px 0 4px; padding-left: 18px; font-size: 13px; color: var(--texto-2); }
+.hist-cambios li { margin: 2px 0; list-style: none; margin-left: -18px; }
+.hist-det { margin: 4px 0 8px; font-size: 13px; }
+.hist-det summary { cursor: pointer; color: var(--texto-3); }
+.hist-det ol { margin: 6px 0 0; padding-left: 22px; }
+.hist-det li { margin: 3px 0; }

@@ -2472,6 +2472,73 @@ async function importarExcel(file, mes, data) {
   });
 }
 
+// ---------- historial del repertorio de un día ----------
+async function modalHistorialRep(s) {
+  const body = abrirModal('🕒 Historial del repertorio', '<div class="spinner"></div>');
+  const { data, error } = await sb.from('historial_repertorio').select('*').eq('setlist_id', s.id).order('created_at', { ascending: false }).limit(40);
+  if (!dlg.open) return;
+  if (error) {
+    const falta = /historial_repertorio|does not exist|schema cache/i.test(error.message || '');
+    body.innerHTML = `<div class="vacio">${falta ? (esAdmin() ? 'Para activar el historial ejecuta <b>supabase/013_historial_repertorio.sql</b> en Supabase.' : 'El historial aún no está activado.') : 'No se pudo cargar el historial.'}</div>`;
+    return;
+  }
+  const versiones = data || [];
+  if (!versiones.length) { body.innerHTML = '<div class="vacio"><span class="grande">🕒</span>Todavía no hay cambios guardados para este día.<br><small>Desde ahora, cada cambio en las canciones queda aquí.</small></div>'; return; }
+  // títulos de las canciones que aparecen en las versiones
+  const ids = [...new Set(versiones.flatMap(v => (v.items || []).map(x => x.cancion_id)))];
+  const { data: cs } = ids.length ? await sb.from('canciones').select('id, titulo, tono_original').in('id', ids) : { data: [] };
+  const can = new Map((cs || []).map(c => [c.id, c]));
+  const titulo = x => can.get(x.cancion_id)?.titulo || 'Canción borrada';
+  const tono = x => x.tono || can.get(x.cancion_id)?.tono_original || '';
+  const cambios = (nueva, vieja) => {
+    if (!vieja) return [];
+    const out = [];
+    const porId = arr => new Map(arr.map(x => [x.cancion_id, x]));
+    const a = porId(vieja), b = porId(nueva);
+    nueva.forEach(x => { if (!a.has(x.cancion_id)) out.push(`➕ ${titulo(x)}${tono(x) ? ' en ' + tonoTxt(tono(x)) : ''}`); });
+    vieja.forEach(x => { if (!b.has(x.cancion_id)) out.push(`➖ ${titulo(x)}`); });
+    nueva.forEach(x => {
+      const o = a.get(x.cancion_id);
+      if (!o) return;
+      if (tono(o) !== tono(x)) out.push(`🎼 ${titulo(x)}: ${tonoTxt(tono(o)) || '—'} → ${tonoTxt(tono(x)) || '—'}`);
+      if ((o.cantante_id || '') !== (x.cantante_id || '')) out.push(`🎤 ${titulo(x)}: ${o.cantante_id ? nombreCorto(o.cantante_id) : 'sin cantante'} → ${x.cantante_id ? nombreCorto(x.cantante_id) : 'sin cantante'}`);
+      if ((o.notas || '') !== (x.notas || '')) out.push(`📝 Nota de ${titulo(x)}`);
+    });
+    const comunesA = vieja.filter(x => b.has(x.cancion_id)).map(x => x.cancion_id).join();
+    const comunesB = nueva.filter(x => a.has(x.cancion_id)).map(x => x.cancion_id).join();
+    if (comunesA !== comunesB) out.push('↕️ Cambió el orden');
+    return out;
+  };
+  const cuando = iso => { const d = new Date(iso); return `${claveDia(d) === claveDia(new Date()) ? 'Hoy' : fmtCorta(d)} · ${fmtHora(d)}`; };
+  body.innerHTML = `
+    <p class="ayuda" style="margin-top:0">Cada cambio en las canciones de <b>${esc(s.titulo)}</b> queda guardado. ${esAdmin() ? 'Toca <b>Restaurar</b> para volver a una versión anterior (la actual también queda guardada).' : 'Un admin puede restaurar una versión anterior.'}</p>
+    <div class="hist-lista">${versiones.map((v, i) => {
+      const items = [...(v.items || [])].sort((x, y) => x.orden - y.orden);
+      const lista = cambios(items, versiones[i + 1] ? [...(versiones[i + 1].items || [])].sort((x, y) => x.orden - y.orden) : null);
+      const restaurada = v.restaurado_de && versiones.find(x => x.id === v.restaurado_de);
+      return `<div class="card hist-v${i === 0 ? ' actual' : ''}">
+        <div class="hist-cab">
+          <b>${v.inicial ? '📌 Versión inicial' : v.restaurado_de ? `↩️ ${esc(nombreCorto(v.autor_id) || 'Alguien')} restauró${restaurada ? ' la de ' + esc(cuando(restaurada.updated_at)) : ' una versión'}` : `✏️ ${esc(v.autor_id ? nombreCorto(v.autor_id) : 'Sistema')}`}</b>
+          <span>${i === 0 ? '<span class="tag ok">Actual</span> ' : ''}<small>${esc(cuando(v.updated_at))}</small></span>
+        </div>
+        ${lista.length ? `<ul class="hist-cambios">${lista.slice(0, 6).map(t => `<li>${esc(t)}</li>`).join('')}${lista.length > 6 ? `<li>…y ${lista.length - 6} cambio${lista.length - 6 > 1 ? 's' : ''} más</li>` : ''}</ul>` : ''}
+        <details class="hist-det"><summary>${items.length} canción${items.length === 1 ? '' : 'es'}</summary>
+          <ol>${items.map(x => `<li>${esc(titulo(x))} <span class="tono-pill">${esc(tonoTxt(tono(x)))}</span>${x.cantante_id ? ` <small>🎤 ${esc(nombreCorto(x.cantante_id))}</small>` : ''}</li>`).join('') || '<li><small>Sin canciones</small></li>'}</ol>
+        </details>
+        ${esAdmin() && i > 0 ? `<button class="btn sm" data-restaurar="${v.id}">↩️ Restaurar esta versión</button>` : ''}
+      </div>`;
+    }).join('')}</div>`;
+  body.onclick = async e => {
+    const b = e.target.closest('[data-restaurar]');
+    if (!b || !confirm('¿Volver el repertorio de este día a esa versión?\nLa versión actual queda guardada en el historial por si la necesitas.')) return;
+    await ocupado(b, async () => {
+      const { error: e2 } = await sb.rpc('restaurar_repertorio', { p_version: b.dataset.restaurar });
+      if (e2) return fallo(e2, 'Restaurar');
+      cerrarModal(); toast('Repertorio restaurado ↩️'); rutear();
+    });
+  };
+}
+
 // ---------- vista: un día ----------
 async function vistaDia(ctx) {
   cargando('Día', { atras: '#/agenda' });
@@ -2530,7 +2597,10 @@ async function vistaDia(ctx) {
       ${esAdmin() ? '<button class="btn sm" data-acc="asignar">👥 Asignar equipo</button>' : ''}`}
     <div class="seccion-t" style="display:flex;justify-content:space-between;align-items:center">
       <span>🎵 Repertorio (${items.length})</span>
-      ${esAdmin() && items.length > 1 && hayRitmo(items) ? '<button class="btn sm" data-acc="ord-ritmo" style="margin:0">⚡→🕊️ Ordenar por ritmo</button>' : ''}
+      <span class="fila" style="gap:6px;margin:0">
+        ${esAdmin() && items.length > 1 && hayRitmo(items) ? '<button class="btn sm" data-acc="ord-ritmo" style="margin:0">⚡→🕊️ Ordenar por ritmo</button>' : ''}
+        <button class="btn sm" data-acc="historial-rep" style="margin:0" title="Ver cambios y restaurar">🕒 Historial</button>
+      </span>
     </div>
     ${esAdmin() && items.length > 1 ? '<p class="ayuda" style="margin:-4px 0 8px">Arrastra ⠿ para cambiar el orden.</p>' : ''}
     <div class="lista" id="listaRep">
@@ -2590,6 +2660,7 @@ async function vistaDia(ctx) {
     const acc = el.dataset.acc, i = +el.dataset.i, it = items[i];
     try {
       if (acc === 'drag') return;
+      if (acc === 'historial-rep') return modalHistorialRep(s);
       if (acc === 'abrir') irCancion(i, !!vivo);
       else if (acc === 'quitar') {
         if (!confirm(`¿Quitar "${it.cancion.titulo}" del repertorio de este día?\n(La canción sigue en el módulo Canciones.)`)) return;
