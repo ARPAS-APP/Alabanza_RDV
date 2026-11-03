@@ -3706,7 +3706,7 @@ function vistaPerfil() {
     </div>
     ${ala ? `<div class="card" id="cardTonos"></div>
     <div id="cardNotif"></div>
-    <div id="cardIndisp"></div>` : `<button class="btn blk" id="bCal" style="margin-top:0;margin-bottom:12px">📅 Mis mentorías en el calendario del celular</button>`}
+    <div id="cardIndisp"></div>` : `<div id="cardNotif"></div><button class="btn blk" id="bCal" style="margin-top:0;margin-bottom:12px">📅 Mis mentorías en el calendario del celular</button>`}
     ${!standalone ? `<div class="card instalar">
       <p>📲 ${ios ? 'Para instalar en iPhone: abre en <b>Safari</b>, toca <b>Compartir</b> ⬆️ y luego <b>"Agregar a inicio"</b>.' : 'Instala la app en tu celular para abrirla como cualquier otra.'}</p>
       ${!ios ? `<button class="btn sm prim" id="bInstalar">Instalar</button>` : ''}
@@ -3744,9 +3744,9 @@ function vistaPerfil() {
   $('#bSalir').onclick = async () => { await idb.limpiar(); await sb.auth.signOut(); location.hash = ''; };
   if (ala) {
     $('#bOffline').onclick = e => descargarSinConexion(e.currentTarget);
-    pintarNotif();
     pintarIndisp();
   }
+  pintarNotif();
   const bi = $('#bInstalar');
   if (bi) bi.onclick = async () => {
     if (st.instalarEvt) { st.instalarEvt.prompt(); st.instalarEvt = null; }
@@ -4057,6 +4057,23 @@ const PUSH_TIPOS = {
   muro: ['📣', 'Nuevas publicaciones en el muro'],
 };
 const PUSH_DEF = { asignacion: true, recordatorio: true, mencion: true, en_vivo: true, muro: false };
+// Discipulado (los manda la función avisos-disc; ver 018_disc_notificaciones.sql)
+const PUSH_TIPOS_D = {
+  d_devocional: ['📖', 'Tu devocional de hoy (7:00 a.m.)'],
+  d_racha: ['🔥', 'Recordatorio para no perder la racha (8:00 p.m.)'],
+  d_mentoria: ['🤝', 'Mentorías: nuevas, cambios y 2 horas antes'],
+  d_respuestas: ['💬', 'Respuestas y comentarios a lo que publico'],
+  d_mentor: ['🙏', 'Como mentor: lo que me comparten y propuestas de fecha'],
+  d_solicitudes: ['🔑', 'Solicitudes de acceso nuevas'],
+};
+const PUSH_DEF_D = { d_devocional: true, d_racha: true, d_mentoria: true, d_respuestas: true, d_mentor: true, d_solicitudes: true };
+const tiposPush = () => {
+  if (st.modulo !== 'discipulado') return [PUSH_TIPOS, PUSH_DEF];
+  const t = { ...PUSH_TIPOS_D };
+  if (discRol() === 'discipulo') delete t.d_mentor;
+  if (!(esAdmin() || discRol() === 'pastor')) delete t.d_solicitudes;
+  return [t, PUSH_DEF_D];
+};
 const pushSoportado = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const b64aU8 = b => { const p = '='.repeat((4 - b.length % 4) % 4); return Uint8Array.from(atob((b + p).replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)); };
 const nombreDispositivo = () => (/iphone|ipad/i.test(navigator.userAgent) ? 'iPhone' : /android/i.test(navigator.userAgent) ? 'Android' : 'Computadora');
@@ -4086,7 +4103,7 @@ async function desactivarPush() {
 async function pintarNotif() {
   const box = $('#cardNotif');
   if (!box) return;
-  if (st.faltaV7) { box.innerHTML = ''; return; }
+  if (st.faltaV7 && st.modulo !== 'discipulado') { box.innerHTML = ''; return; }
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   let estado;
@@ -4094,7 +4111,8 @@ async function pintarNotif() {
   else if (Notification.permission === 'denied') estado = 'bloq';
   else estado = (await miSuscripcion().catch(() => null)) ? 'on' : 'off';
   if (!$('#cardNotif')) return;
-  const prefs = { ...PUSH_DEF, ...(st.perfil.notif || {}) };
+  const [TIPOS, DEF] = tiposPush();
+  const prefs = { ...DEF, ...(st.perfil.notif || {}) };
   const ETIQ = { on: 'Activas aquí', off: 'Apagadas', bloq: 'Bloqueadas', ios: 'Instala la app', no: 'No disponible' };
   box.innerHTML = `<div class="card notif">
     <div class="notif-h"><b>🔔 Notificaciones</b><span class="estado-push ${estado}">${ETIQ[estado]}</span></div>
@@ -4102,7 +4120,7 @@ async function pintarNotif() {
     ${estado === 'bloq' ? '<p class="ayuda">Las bloqueaste en este navegador. Permítelas en los ajustes del sitio y vuelve a abrir la app.</p>' : ''}
     ${estado === 'no' ? '<p class="ayuda">Este navegador no permite notificaciones.</p>' : ''}
     ${estado === 'off' ? '<p class="ayuda" style="margin-bottom:0">Recibe avisos aunque la app esté cerrada.</p><button class="btn prim blk" data-push="on" style="margin-top:10px">Activar en este celular</button>' : ''}
-    ${'notif' in st.perfil ? `<div class="prefs">${Object.entries(PUSH_TIPOS).map(([k, [ico, txt]]) =>
+    ${'notif' in st.perfil ? `<div class="prefs">${Object.entries(TIPOS).map(([k, [ico, txt]]) =>
       `<label class="switch"><span>${ico} ${txt}</span><input type="checkbox" data-pref="${k}" ${prefs[k] ? 'checked' : ''}><i></i></label>`).join('')}</div>` : ''}
     ${estado === 'on' ? '<div class="fila" style="margin-top:12px"><button class="btn sm" data-push="prueba">Enviar prueba</button><button class="btn sm peligro" data-push="off">Apagar aquí</button></div>' : ''}
   </div>`;
@@ -4125,7 +4143,7 @@ async function pintarNotif() {
   box.onchange = async e => {
     const c = e.target.closest('[data-pref]');
     if (!c) return;
-    const notif = { ...PUSH_DEF, ...(st.perfil.notif || {}), [c.dataset.pref]: c.checked };
+    const notif = { ...(st.perfil.notif || {}), [c.dataset.pref]: c.checked };
     const { error } = await sb.from('profiles').update({ notif }).eq('id', st.uid);
     if (error) { c.checked = !c.checked; return fallo(error, 'Preferencias'); }
     st.perfil = { ...st.perfil, notif }; st.perfiles.set(st.uid, st.perfil);

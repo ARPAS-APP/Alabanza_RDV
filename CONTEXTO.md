@@ -45,6 +45,8 @@ Costo: **$0** (GitHub Pages + plan gratis de Supabase).
 
 15. `017_disc_devocional_interactivo.sql` ⏳ **ejecutar**: comentarios en cada devocional (`disc_dev_comentarios`) y `disc_completaron` (quien administra ve quién lo hizo; un mentor, sus discípulos; nunca el texto privado).
 
+16. `018_disc_notificaciones.sql` ⏳ **ejecutar** después de publicar la Edge Function **`avisos-disc`** (Verify JWT desactivado; usa los secretos `PUSH_SECRET` y `VAPID_PRIVATE_KEY` de la función `push`). Disparadores en mentorías, comentarios, publicaciones y solicitudes, y tareas programadas: devocional 7:00 a.m., racha 8:00 p.m., mentoría 2 h antes.
+
 No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 
 ## Permisos
@@ -91,7 +93,7 @@ No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 - **Biblia** (`js/biblia.js`, `biblia/`): RV1909, BES, VBL y PDT (uso libre), lector por capítulo, versión preferida, compartir versículos. Las citas tipo "Juan 15:5" en muro, comentarios y devocionales se vuelven enlaces; RVR1960/NVI/NTV/LBLA/DHH se abren en Bible Gateway. Si el devocional solo tiene la cita, el texto sale de la Biblia.
 - **Devocional interactivo:** quien administra ve en el propio devocional el panel ✅ "X de Y lo completaron" (quién sí y quién falta) y el botón ✎ Editar; todos pueden comentar. La respuesta viene por defecto en Comunidad.
 - **Muro:** fotos (se comprimen) y PDFs, hasta 6 por publicación; preguntas con respuesta marcada y opción anónima.
-- Notificaciones push de Discipulado: aún no.
+- **Notificaciones de Discipulado:** función `avisos-disc`; cada persona las elige en Mi perfil (claves `d_*` en `profiles.notif`).
 
 ## Pendientes / próximos pasos
 - [ ] Confirmar que se ejecutaron los scripts 002, 003, 004, 007 y 008, y ejecutar 009.
