@@ -91,7 +91,7 @@ async function cargar() {
   const [y, m] = mes.split('-').map(Number);
   const desde = new Date(y, m - 1, 1), hasta = new Date(y, m, 1);
   pg.innerHTML = `
-    <div class="pg-head"><img src="icons/logo.png" alt=""><div><h1>Programa de Alabanza</h1><small>Roca de Vida Panamá · solo lectura</small></div></div>
+    <div class="pg-head"><img src="icons/arpas-icon-192.png" alt="Arpas"><div><h1>Programa de Alabanza</h1><small>Roca de Vida Panamá · solo lectura</small></div></div>
     <div class="pg-mes">
       <button class="btn-ico" data-mes="-1" aria-label="Mes anterior">‹</button>
       <b>${esc(nombreMes(mes))}</b>

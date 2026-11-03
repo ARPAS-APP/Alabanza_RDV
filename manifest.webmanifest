@@ -1,17 +1,30 @@
 {
-  "name": "Roca de Vida · Alabanza",
-  "short_name": "Alabanza",
-  "description": "Muro, canciones, tonos y ensayos del equipo de alabanza.",
+  "name": "Arpas",
+  "short_name": "Arpas",
+  "description": "Alabanza y Discipulado: agenda, canciones, devocionales y mentorías.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#000000",
+  "background_color": "#111010",
   "theme_color": "#000000",
   "lang": "es",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/arpas-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/arpas-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/arpas-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

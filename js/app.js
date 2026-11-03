@@ -62,11 +62,12 @@ mqClaro.addEventListener?.('change', aplicarTema);
 function aplicarMarca(disc) {
   const fija = (sel, attr, v) => document.querySelector(sel)?.setAttribute(attr, v);
   fija('link[rel="manifest"]', 'href', disc ? 'manifest-arpas.webmanifest' : 'manifest.webmanifest');
-  fija('link[rel="apple-touch-icon"]', 'href', disc ? 'icons/arpas-icon-180.png' : 'icons/apple-touch-icon.png');
-  fija('link[rel="icon"]', 'href', disc ? 'icons/arpas-mark.svg' : 'icons/favicon-32.png');
-  fija('meta[name="apple-mobile-web-app-title"]', 'content', disc ? 'Arpas' : 'Alabanza');
-  document.title = disc ? 'Arpas · Discipulado' : APP_NOMBRE;
+  fija('link[rel="icon"]', 'href', disc ? 'icons/arpas-mark.svg' : 'icons/arpas-mark-reverse.svg');
+  document.title = disc ? 'Arpas · Discipulado' : 'Arpas · Alabanza';
 }
+// Logo de Arpas: versión oscura y clara; el CSS muestra la que corresponde al tema
+const marcaArpas = (cls = '') => `<img class="${cls} m-osc" src="icons/arpas-mark-reverse.svg" alt="Arpas"><img class="${cls} m-cla" src="icons/arpas-mark.svg" alt="Arpas">`;
+const logoArpas = () => `<img class="logo logo-arpas m-osc" src="icons/arpas-logo-reverse.svg" alt="Arpas"><img class="logo logo-arpas m-cla" src="icons/arpas-logo.svg" alt="Arpas">`;
 
 const $ = (s, el = document) => el.querySelector(s);
 const app = $('#app');
@@ -207,7 +208,7 @@ async function ocupado(btn, fn) {
 function encabezado(titulo, { sub = '', atras = null, derecha = '' } = {}) {
   const izq = atras
     ? `<button class="atras" data-atras="${esc(atras)}" aria-label="Volver">‹</button>`
-    : st.modulo === 'discipulado' ? `<img src="icons/arpas-mark.svg" alt="Arpas">` : `<img src="icons/logo.png" alt="">`;
+    : marcaArpas();
   const disc = st.modulo === 'discipulado';
   const cambio = tieneAlabanza() && discRol()
     ? (disc ? `<a class="mod-chip" href="#/muro" title="Ir a Alabanza">🎵 Alabanza</a>` : `<a class="mod-chip" href="#/d/inicio" title="Ir a Discipulado">🌱 Discipulado</a>`) : '';
@@ -305,9 +306,9 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
   const titulos = { login: 'Entrar', registro: 'Crear cuenta', olvido: 'Recuperar contraseña' };
   app.innerHTML = `
   <div class="auth">
-    ${pre === 'discipulado' ? '<img class="logo logo-arpas" src="icons/arpas-logo.svg" alt="Arpas">' : '<img class="logo" src="icons/logo.png" alt="Roca de Vida Panamá">'}
-    <h1>${esc(pre === 'discipulado' ? 'Discipulado' : APP_NOMBRE)}</h1>
-    <p class="lema">${pre === 'discipulado' ? 'Seguimiento, oración y crecimiento' : 'Equipo de alabanza'}</p>
+    ${logoArpas()}
+    <h1>${pre === 'discipulado' ? 'Discipulado' : 'Ministerio de alabanza'}</h1>
+    <p class="lema">${pre === 'discipulado' ? 'Seguimiento, oración y crecimiento' : 'Roca de Vida Panamá'}</p>
     ${modo !== 'olvido' ? `<div class="tabs-auth">
       <button type="button" data-modo="login" class="${modo === 'login' ? 'activo' : ''}">Entrar</button>
       <button type="button" data-modo="registro" class="${modo === 'registro' ? 'activo' : ''}">Crear cuenta</button>
@@ -363,7 +364,7 @@ function vistaPendiente(sinModulo = false) {
   aplicarMarca(disc);
   app.innerHTML = `
   <div class="auth" style="text-align:center">
-    ${disc ? '<img class="logo logo-arpas" src="icons/arpas-logo.svg" alt="Arpas">' : '<img class="logo" src="icons/logo.png" alt="">'}
+    ${logoArpas()}
     <h1>${bloqueado ? 'Acceso desactivado' : '¡Ya casi!'}</h1>
     <p class="lema">${bloqueado
       ? 'Tu cuenta fue desactivada. Habla con un administrador del equipo.'
@@ -442,7 +443,7 @@ function cargando(titulo, opts) {
 // MURO
 // =====================================================================
 async function vistaMuro(ctx) {
-  cargando('Muro', { sub: 'Roca de Vida Panamá' });
+  cargando('Muro', { sub: 'Ministerio de alabanza' });
   const render = async () => {
     const SEL_PROG = ', setlist:setlists(id, titulo, fecha, ensayo_fecha, lugar, tipo, tipo_evento_id, asignaciones(perfil_id, rol, estado), setlist_items(orden, tono, cantante_id' + (st.faltaV6 ? '' : ', ritmo') + ', cancion:canciones(titulo, tono_original' + (st.faltaV6 ? '' : ', ritmo') + ')))';
     const [{ data, error }, pend, rv] = await Promise.all([
@@ -459,7 +460,7 @@ async function vistaMuro(ctx) {
     const enVivo = (rv.data || []).filter(v => v.setlist).map(v => `
       <a class="card vivo-banner" href="#/dia/${v.setlist.id}"><span class="punto-vivo"></span>
         <div class="info"><b>En vivo ahora</b><small>${esc(tipoDe(v.setlist).emoji)} ${esc(v.setlist.titulo)} · toca para unirte</small></div><span>›</span></a>`).join('');
-    app.innerHTML = encabezado('Muro', { sub: 'Roca de Vida Panamá' }) + enVivo + tarjetaPorConfirmar(pend) + (posts || `
+    app.innerHTML = encabezado('Muro', { sub: 'Ministerio de alabanza' }) + enVivo + tarjetaPorConfirmar(pend) + (posts || `
       <div class="vacio"><span class="grande">📣</span>Todavía no hay publicaciones.${esAdmin() ? '<br>Toca <b>+</b> para crear la primera.' : ''}</div>`)
       + (data.length >= st.muroLimite ? `<button class="btn blk" data-acc="mas">Ver más</button>` : '')
       + (esAdmin() ? `<button class="fab" data-acc="nuevo" aria-label="Nueva publicación">+</button>` : '');
@@ -3718,7 +3719,7 @@ function vistaPerfil() {
     </div>` : ''}
     <button class="btn blk" id="bClave">Cambiar contraseña</button>
     <button class="btn peligro blk" id="bSalir">Cerrar sesión</button>
-    <p class="ayuda" style="text-align:center;margin-top:20px">${esc(st.modulo === 'discipulado' ? 'Arpas · Discipulado' : APP_NOMBRE)}</p>`;
+    <p class="ayuda" style="text-align:center;margin-top:20px">${esc(st.modulo === 'discipulado' ? 'Arpas · Discipulado' : 'Arpas · Ministerio de alabanza')}</p>`;
   $('#fPerfil').onsubmit = e => {
     e.preventDefault();
     ocupado(e.target.querySelector('button'), async () => {

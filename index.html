@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <title>Roca de Vida · Alabanza</title>
+  <title>Arpas</title>
   <meta name="description" content="Alabanza y Discipulado: muro, canciones, ensayos, devocionales y mentorías.">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Alabanza">
+  <meta name="apple-mobile-web-app-title" content="Arpas">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="icons/arpas-mark-reverse.svg">
+  <link rel="apple-touch-icon" href="icons/arpas-icon-180.png">
   <link rel="stylesheet" href="css/styles.css">
   <script>
     // Tema guardado (auto / claro / oscuro) antes de pintar, para evitar parpadeo
@@ -22,14 +22,13 @@
 <body>
   <div id="offline" class="offline" hidden>📴 Sin conexión · mostrando lo guardado en tu celular</div>
   <div id="app">
-    <div class="cargando"><img src="icons/logo.png" alt="" class="logo-pulso"></div>
+    <div class="cargando"><img src="icons/arpas-mark-reverse.svg" alt="Arpas" class="logo-pulso m-osc"><img src="icons/arpas-mark.svg" alt="Arpas" class="logo-pulso m-cla"></div>
   </div>
   <script>
-    // Discipulado abre con el logo de Arpas
+    // Discipulado abre con su paleta
     try {
       var h = location.hash, aj = JSON.parse(localStorage.getItem('alabanza.ajustes')) || {};
       if (/m=discipulado|^#\/d\//.test(h) || ((!h || h === '#/') && aj.modulo === 'discipulado')) {
-        document.querySelector('.logo-pulso').src = 'icons/arpas-mark.svg';
         document.body.classList.add('mod-disc');
       }
     } catch (e) {}

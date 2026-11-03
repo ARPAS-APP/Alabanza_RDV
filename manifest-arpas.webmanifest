@@ -1,5 +1,5 @@
 {
-  "name": "Arpas · Discipulado",
+  "name": "Arpas",
   "short_name": "Arpas",
   "description": "Devocionales, muro, retos y mentorías para discipular.",
   "start_url": "./#/d/inicio",
@@ -10,8 +10,21 @@
   "theme_color": "#f7f2ea",
   "lang": "es",
   "icons": [
-    { "src": "icons/arpas-icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/arpas-icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/arpas-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/arpas-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/arpas-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/arpas-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
