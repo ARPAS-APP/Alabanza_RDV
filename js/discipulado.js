@@ -63,8 +63,28 @@ export function crearDiscipulado(api) {
   }
   const miMentor = e => e.mentorDe.get(st.uid) || null;
   const misDiscipulos = e => e.discipulosDe.get(st.uid) || [];
-  // "Mi grupo": si tengo discípulos es el mío; si no, el de mi mentor
-  const miGrupo = e => (misDiscipulos(e).length ? st.uid : miMentor(e));
+  // Un mentor también puede ser discípulo: entonces tiene dos grupos posibles
+  const primer = id => nombreDe(id).split(' ')[0];
+  const gruposDe = e => [
+    ...(misDiscipulos(e).length ? [{ id: st.uid, txt: 'Mis discípulos', sub: 'Tú y tu grupo' }] : []),
+    ...(miMentor(e) ? [{ id: miMentor(e), txt: misDiscipulos(e).length ? `Grupo de ${primer(miMentor(e))}` : 'Mi grupo', sub: `${primer(miMentor(e))} y su grupo` }] : []),
+  ];
+  const visDe = r => r.visibilidad === 'grupo'
+    ? { ico: '👥', txt: r.grupo_id === st.uid ? 'Mis discípulos' : `Grupo de ${primer(r.grupo_id)}` } : VIS[r.visibilidad];
+  // Botones de "¿Quién puede verlo?": claves yo | mentor | grupo:<id> | comunidad
+  const opcionesVis = (e, claves) => {
+    const out = [];
+    for (const k of claves) {
+      if (k === 'grupo') {
+        const gs = gruposDe(e);
+        if (!gs.length) out.push({ k: 'grupo', ico: '👥', txt: 'Mi grupo', sub: 'Aún no tienes grupo', off: true });
+        gs.forEach(g => out.push({ k: 'grupo:' + g.id, ico: '👥', txt: g.txt, sub: g.sub }));
+      } else out.push({ k, ...VIS[k], ...(k === 'mentor' && !miMentor(e) ? { sub: 'Aún no tienes mentor', off: true } : {}) });
+    }
+    return out;
+  };
+  const botonesVis = (ops, sel) => ops.map(o => `<button type="button" data-vis="${o.k}" class="${o.k === sel ? 'activo' : ''}" ${o.off ? 'disabled' : ''} aria-pressed="${o.k === sel}"><b>${o.ico} ${esc(o.txt)}</b><small>${esc(o.sub)}</small></button>`).join('');
+  const partirVis = k => k.startsWith('grupo:') ? { visibilidad: 'grupo', grupo_id: k.slice(6) } : { visibilidad: k, grupo_id: null };
   const miembrosDisc = () => [...st.perfiles.values()].filter(p => p.estado === 'aprobado' && st.modsDe.get(p.id)?.discipulado);
 
   function cab(titulo, opts = {}) { return encabezado(titulo, opts); }
@@ -171,12 +191,13 @@ export function crearDiscipulado(api) {
 
     const [{ data: mia }, { data: compartidas }] = await Promise.all([
       sb.from('disc_respuestas').select('*').eq('devocional_id', dev.id).eq('autor_id', st.uid).maybeSingle(),
-      sb.from('disc_respuestas').select('id, autor_id, texto, visibilidad, created_at').eq('devocional_id', dev.id).neq('autor_id', st.uid).order('created_at'),
+      sb.from('disc_respuestas').select('id, autor_id, texto, visibilidad, grupo_id, created_at').eq('devocional_id', dev.id).neq('autor_id', st.uid).order('created_at'),
     ]);
     if (!ctx.vigente()) return;
-    const grupo = miGrupo(e), mentor = miMentor(e);
-    let vis = mia?.visibilidad || (mentor ? 'mentor' : 'yo');
-    const disponible = k => k === 'yo' || k === 'comunidad' || (k === 'mentor' && mentor) || (k === 'grupo' && grupo);
+    const mentor = miMentor(e);
+    const ops = opcionesVis(e, ['yo', 'mentor', 'grupo', 'comunidad']);
+    let vis = mia ? (mia.visibilidad === 'grupo' ? 'grupo:' + mia.grupo_id : mia.visibilidad) : (mentor ? 'mentor' : 'yo');
+    if (!ops.some(o => o.k === vis && !o.off)) vis = 'yo';
 
     app.innerHTML = cab(dev.titulo, { sub: (dev.serie ? dev.serie + ' · ' : '') + fechaTxt(dev.fecha, { weekday: 'long', day: 'numeric', month: 'short' }), atras: fecha !== hoyF ? '#/d/devocional' : null }) + `
       ${dev.pasaje_texto || dev.pasaje_ref ? `<div class="d-hero d-pasaje"><span class="d-eti">Lee</span>${dev.pasaje_texto ? `<blockquote>${esc1(dev.pasaje_texto)}</blockquote>` : ''}${dev.pasaje_ref ? `<small>${esc(dev.pasaje_ref)}</small>` : ''}</div>` : ''}
@@ -186,14 +207,12 @@ export function crearDiscipulado(api) {
         <label for="tResp" style="margin-top:0;font-size:15px;color:var(--texto)">${esc(dev.pregunta || '¿Qué te habló Dios hoy?')}</label>
         <textarea id="tResp" name="texto" maxlength="4000" placeholder="Escribe tu respuesta…">${esc(mia?.texto || '')}</textarea>
         <label>¿Quién puede verla?</label>
-        <div class="d-vis" id="segVis">${Object.entries(VIS).map(([k, v]) => `
-          <button type="button" data-vis="${k}" class="${k === vis ? 'activo' : ''}" ${disponible(k) ? '' : 'disabled'} aria-pressed="${k === vis}">
-            <b>${v.ico} ${v.txt}</b><small>${disponible(k) ? v.sub : (k === 'mentor' ? 'Aún no tienes mentor' : 'Aún no tienes grupo')}</small></button>`).join('')}</div>
+        <div class="d-vis" id="segVis">${botonesVis(ops, vis)}</div>
         <button class="btn prim blk">${mia ? 'Guardar cambios' : 'Guardar y sumar a mi racha 🔥'}</button>
         ${mia ? `<p class="ayuda" style="text-align:center">✓ Completado ${esc(haceCuanto(mia.created_at))}</p>` : ''}
       </form>
       ${compartidas?.length ? `<div class="seccion-t">Lo que compartieron (${compartidas.length})</div><div class="lista">${compartidas.map(r => `
-        <div class="card d-post"><div class="d-post-h">${avatar(r.autor_id)}<div class="info"><b>${esc(nombreDe(r.autor_id))}</b><small>${esc(haceCuanto(r.created_at))}</small></div><span class="tag">${VIS[r.visibilidad].ico} ${VIS[r.visibilidad].txt}</span></div>
+        <div class="card d-post"><div class="d-post-h">${avatar(r.autor_id)}<div class="info"><b>${esc(nombreDe(r.autor_id))}</b><small>${esc(haceCuanto(r.created_at))}</small></div><span class="tag">${visDe(r).ico} ${esc(visDe(r).txt)}</span></div>
         <div class="d-post-t">${esc1(r.texto)}</div></div>`).join('')}</div>` : ''}
       ${listaHtml}`;
 
@@ -208,7 +227,7 @@ export function crearDiscipulado(api) {
       const texto = $('#tResp').value.trim();
       if (!texto) { toast('Escribe tu respuesta antes de guardar', true); return; }
       ocupado(ev.target.querySelector('button.prim'), async () => {
-        const fila = { devocional_id: dev.id, autor_id: st.uid, texto, visibilidad: vis, grupo_id: vis === 'grupo' ? grupo : null, updated_at: new Date().toISOString() };
+        const fila = { devocional_id: dev.id, autor_id: st.uid, texto, ...partirVis(vis), updated_at: new Date().toISOString() };
         const { error } = await sb.from('disc_respuestas').upsert(fila, { onConflict: 'devocional_id,autor_id' });
         if (error) return fallo(error, 'Devocional');
         if (!mia) {
@@ -232,14 +251,14 @@ export function crearDiscipulado(api) {
       .order('created_at', { ascending: false }).limit(60);
     if (!ctx.vigente()) return;
     if (error) return falta(error);
-    const grupo = miGrupo(e);
+    const grupos = gruposDe(e);
     const abiertos = vistaMuro._abiertos || (vistaMuro._abiertos = new Set());
     const pinta = () => {
       const lista = (posts || []).filter(p => filtroMuro === 'todo' || (filtroMuro === 'grupo' ? p.visibilidad === 'grupo' : filtroMuro === 'mentor' ? p.visibilidad === 'mentor' : p.visibilidad === 'comunidad'));
       app.innerHTML = cab('Muro', { sub: 'Discipulado', derecha: '' }) + `
-        <div class="segmentado" id="segMuro">${[['todo', 'Todo'], ['comunidad', '🌍 Comunidad'], ...(grupo ? [['grupo', '👥 Mi grupo']] : []), ...(misDiscipulos(e).length ? [['mentor', '🤝 Para mí']] : [])]
+        <div class="segmentado" id="segMuro">${[['todo', 'Todo'], ['comunidad', '🌍 Comunidad'], ...(grupos.length ? [['grupo', grupos.length > 1 ? '👥 Grupos' : '👥 Mi grupo']] : []), ...(misDiscipulos(e).length ? [['mentor', '🤝 Para mí']] : [])]
           .map(([k, v]) => `<button type="button" data-f="${k}" class="${filtroMuro === k ? 'activo' : ''}">${v}</button>`).join('')}</div>
-        ${filtroMuro === 'grupo' ? `<p class="ayuda d-candado">🔒 Solo lo ven ${grupo === st.uid ? 'tú y tus discípulos' : esc(nombreDe(grupo)) + ' y su grupo'}.</p>` : ''}
+        ${filtroMuro === 'grupo' ? `<p class="ayuda d-candado">🔒 Solo lo ven los de cada grupo: ${grupos.map(g => esc(g.sub)).join(' · ')}.</p>` : ''}
         ${filtroMuro === 'mentor' ? '<p class="ayuda d-candado">🔒 Lo que tus discípulos compartieron solo contigo.</p>' : ''}
         <div class="lista">${lista.length ? lista.map(p => tarjeta(p)).join('') : vacio('🌱', 'Todavía no hay publicaciones aquí. ¡Comparte la primera!')}</div>
         <button class="fab" id="fabPost" aria-label="Compartir">＋</button>`;
@@ -251,7 +270,7 @@ export function crearDiscipulado(api) {
       const com = [...(p.com || [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
       const ab = abiertos.has(p.id);
       return `<article class="card d-post" data-id="${p.id}">
-        <div class="d-post-h">${avatar(p.autor_id)}<div class="info"><b>${esc(nombreDe(p.autor_id))}</b><small>${esc(haceCuanto(p.created_at))} · ${VIS[p.visibilidad].ico} ${VIS[p.visibilidad].txt}</small></div>
+        <div class="d-post-h">${avatar(p.autor_id)}<div class="info"><b>${esc(nombreDe(p.autor_id))}</b><small>${esc(haceCuanto(p.created_at))} · ${visDe(p).ico} ${esc(visDe(p).txt)}</small></div>
           ${p.autor_id === st.uid || (esPastor() && p.visibilidad === 'comunidad') ? `<button class="btn-ico sm" data-acc="borrar" aria-label="Borrar publicación">🗑</button>` : ''}</div>
         <span class="tag d-tipo-${p.tipo} d-tipo">${t.ico} ${t.txt}</span>
         <div class="d-post-t">${esc1(p.texto)}</div>
@@ -330,8 +349,9 @@ export function crearDiscipulado(api) {
   }
 
   function modalPost(e, alGuardar) {
-    const grupo = miGrupo(e), mentor = miMentor(e);
+    const mentor = miMentor(e);
     const puedeAnunciar = misDiscipulos(e).length || esPastor();
+    const ops = opcionesVis(e, ['comunidad', 'grupo', 'mentor']);
     let vis = 'comunidad';
     const body = abrirModal('Compartir', `
       <form id="fPost">
@@ -339,10 +359,7 @@ export function crearDiscipulado(api) {
         <select name="tipo">${Object.entries(TIPOS_POST).filter(([k]) => k !== 'logro' && (k !== 'anuncio' || puedeAnunciar)).map(([k, v]) => `<option value="${k}">${v.ico} ${v.txt}</option>`).join('')}</select>
         <label>Mensaje</label><textarea name="texto" maxlength="4000" required placeholder="Comparte lo que Dios está haciendo, un versículo o una petición…"></textarea>
         <label>¿Quién puede verlo?</label>
-        <div class="d-vis" id="pVis">${['comunidad', 'grupo', 'mentor'].map(k => {
-          const ok = k === 'comunidad' || (k === 'grupo' && grupo) || (k === 'mentor' && mentor);
-          return `<button type="button" data-vis="${k}" class="${k === vis ? 'activo' : ''}" ${ok ? '' : 'disabled'} aria-pressed="${k === vis}"><b>${VIS[k].ico} ${VIS[k].txt}</b><small>${ok ? VIS[k].sub : 'No disponible'}</small></button>`;
-        }).join('')}</div>
+        <div class="d-vis" id="pVis">${botonesVis(ops, vis)}</div>
         <button class="btn prim blk">Publicar</button>
       </form>`);
     $('#pVis', body).onclick = ev => {
@@ -358,7 +375,7 @@ export function crearDiscipulado(api) {
       ev.preventDefault();
       const f = Object.fromEntries(new FormData(ev.target));
       ocupado(ev.target.querySelector('button.prim'), async () => {
-        const { error } = await sb.from('disc_posts').insert({ autor_id: st.uid, tipo: f.tipo, texto: f.texto.trim(), visibilidad: vis, grupo_id: vis === 'grupo' ? grupo : null });
+        const { error } = await sb.from('disc_posts').insert({ autor_id: st.uid, tipo: f.tipo, texto: f.texto.trim(), ...partirVis(vis) });
         if (error) return fallo(error, 'Publicar');
         cerrarModal(); toast('Publicado'); alGuardar();
       });
@@ -596,7 +613,7 @@ export function crearDiscipulado(api) {
     const soyMentor = e.mentorDe.get(id) === st.uid;
     const [res, resp, posts, notas, retos, niveles] = await Promise.all([
       sb.rpc('disc_resumen', { p_todos: esPastor() && !soyMentor }),
-      sb.from('disc_respuestas').select('id, texto, visibilidad, created_at, dev:disc_devocionales(titulo, fecha)').eq('autor_id', id).order('created_at', { ascending: false }).limit(10),
+      sb.from('disc_respuestas').select('id, texto, visibilidad, grupo_id, created_at, dev:disc_devocionales(titulo, fecha)').eq('autor_id', id).order('created_at', { ascending: false }).limit(10),
       sb.from('disc_posts').select('*').eq('autor_id', id).neq('visibilidad', 'comunidad').order('created_at', { ascending: false }).limit(10),
       soyMentor ? sb.from('disc_notas').select('*').eq('discipulo_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
       sb.from('disc_retos_part').select('completado_at, reto:disc_retos(titulo, dias), marcas:disc_retos_marcas(fecha)').eq('perfil_id', id),
@@ -618,9 +635,9 @@ export function crearDiscipulado(api) {
         <form id="fNota"><label for="tNota" class="sr">Nueva nota</label><textarea id="tNota" maxlength="4000" placeholder="Escribe una nota nueva…"></textarea><button class="btn sm d-cal-btn">Guardar nota</button></form>
       </div>` : ''}
       <div class="seccion-t">Devocionales que compartió contigo</div>
-      ${(resp.data || []).length ? (resp.data || []).map(x => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${esc(x.dev?.titulo || '')}</b><small>${esc(haceCuanto(x.created_at))}</small></div><span class="tag">${VIS[x.visibilidad].ico} ${VIS[x.visibilidad].txt}</span></div><div class="d-post-t">${esc1(x.texto)}</div></div>`).join('') : '<p class="ayuda">Todavía no ha compartido respuestas contigo.</p>'}
+      ${(resp.data || []).length ? (resp.data || []).map(x => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${esc(x.dev?.titulo || '')}</b><small>${esc(haceCuanto(x.created_at))}</small></div><span class="tag">${visDe(x).ico} ${esc(visDe(x).txt)}</span></div><div class="d-post-t">${esc1(x.texto)}</div></div>`).join('') : '<p class="ayuda">Todavía no ha compartido respuestas contigo.</p>'}
       <div class="seccion-t">Peticiones y mensajes para ti o el grupo</div>
-      ${(posts.data || []).length ? (posts.data || []).map(p => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${TIPOS_POST[p.tipo]?.ico || ''} ${esc(TIPOS_POST[p.tipo]?.txt || '')}</b><small>${esc(haceCuanto(p.created_at))}</small></div><span class="tag">${VIS[p.visibilidad].ico} ${VIS[p.visibilidad].txt}</span></div><div class="d-post-t">${esc1(p.texto)}</div></div>`).join('') : '<p class="ayuda">Nada por ahora.</p>'}
+      ${(posts.data || []).length ? (posts.data || []).map(p => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${TIPOS_POST[p.tipo]?.ico || ''} ${esc(TIPOS_POST[p.tipo]?.txt || '')}</b><small>${esc(haceCuanto(p.created_at))}</small></div><span class="tag">${visDe(p).ico} ${esc(visDe(p).txt)}</span></div><div class="d-post-t">${esc1(p.texto)}</div></div>`).join('') : '<p class="ayuda">Nada por ahora.</p>'}
       <div class="seccion-t">Retos</div>
       ${(retos.data || []).length ? `<div class="lista">${retos.data.filter(x => x.reto).map(x => `<div class="item" style="cursor:default"><span class="d-chk ${x.completado_at ? 'si' : ''}">${x.completado_at ? '✓' : ''}</span><div class="info"><b>${esc(x.reto.titulo)}</b><small>${x.marcas.length} de ${x.reto.dias} días</small></div></div>`).join('')}</div>` : '<p class="ayuda">No se ha unido a ningún reto.</p>'}`;
 
