@@ -2571,6 +2571,8 @@ async function vistaMis(ctx) {
     const { s, mios, items } = d;
     const t = tipoDe(s);
     const estado = mios.every(a => a.estado === mios[0].estado) ? mios[0].estado : '';
+    // ya respondió (Puedo / No puedo): se oculta la barra y queda un resumen con "Cambiar"
+    const respondido = estado === 'confirmado' || estado === 'rechazado';
     const falta = cuantoFalta(s.fecha);
     const companeros = s.asignaciones.filter(a => a.perfil_id !== st.uid && a.estado !== 'rechazado').sort(ordenAsig);
     const misCanciones = items.filter(i => i.cantante_id === st.uid).length;
@@ -2584,7 +2586,9 @@ async function vistaMis(ctx) {
         ${falta ? `<span class="tag ${falta === 'Hoy' || falta === 'Mañana' ? 'warn' : ''}">${falta}</span>` : ''}
       </div>
       <div class="mis-rol">Te toca: ${mios.map(a => `<b>${esc(rolMio(a))}</b>`).join(' + ')}${misCanciones ? ` · cantas ${misCanciones} canción${misCanciones > 1 ? 'es' : ''}` : ''}</div>
-      <div class="fila mis-conf">${botonesEstado('conf-mis', `data-ids="${mios.map(a => a.id).join(',')}"`, estado)}</div>
+      ${respondido ? `<div class="mis-conf-ok ${estado}">${estado === 'confirmado' ? '✅ Confirmaste que puedes' : '❌ Avisaste que no puedes'}
+          <button class="btn-link" data-acc="cambiar-conf">Cambiar</button></div>` : ''}
+      <div class="fila mis-conf"${respondido ? ' hidden' : ''}>${botonesEstado('conf-mis', `data-ids="${mios.map(a => a.id).join(',')}"`, estado)}</div>
       ${s.notas ? `<p class="post-texto mis-nota">${esc(s.notas)}</p>` : ''}
       <div class="mis-rep">
         <div class="mis-rep-t">🎵 Repertorio${items.length ? ` (${items.length})` : ''}</div>
@@ -2622,6 +2626,10 @@ async function vistaMis(ctx) {
         const { error } = await sb.from('asignaciones').update({ estado: el.dataset.estado }).in('id', el.dataset.ids.split(','));
         if (error) { if (avisoV9(error)) return; throw error; }
         toast(TOAST_ESTADO[el.dataset.estado]); actualizarBadgeMis(); rutear();
+      } else if (el.dataset.acc === 'cambiar-conf') {
+        const card = el.closest('.mis-dia');
+        card.querySelector('.mis-conf').hidden = false;
+        el.closest('.mis-conf-ok').hidden = true;
       } else if (el.dataset.acc === 'calendario') {
         modalCalendario();
       } else if (el.dataset.acc === 'offline') {
