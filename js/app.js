@@ -2751,7 +2751,10 @@ function htmlChat() {
     ? '<div class="card" style="border-color:var(--peligro);margin-top:16px">⚠️ Para activar el chat ejecuta <b>supabase/004_voz_dirige_chat.sql</b> en Supabase → SQL Editor.</div>' : '';
   return `<div class="seccion-t">💬 Chat del día</div>
     <div class="card chat">
+      <div class="chat-tabs" id="chatTabs"></div>
+      <div class="chat-nuevo-priv" id="chatNuevo" hidden></div>
       <div class="chat-lista" id="chatLista"><div class="chat-vacio">Cargando…</div></div>
+      <p class="chat-solo-ver" id="chatSoloVer" hidden></p>
       <form class="chat-form" id="fChat">
         <div class="men-sug" id="menSug" hidden></div>
         <button type="button" class="btn-ico men-at" data-at aria-label="Mencionar a alguien">@</button>
@@ -2765,17 +2768,45 @@ async function iniciarChat(s, ctx) {
   const lista = $('#chatLista'), form = $('#fChat');
   if (!lista || !form) return;
   let msgs = [];
+  // Conversaciones: 'g' = chat general del día; privado = "idA|idB" (ordenados)
+  const tabs = $('#chatTabs'), nuevoPriv = $('#chatNuevo'), soloVer = $('#chatSoloVer');
+  const par = (a, b) => [a, b].sort().join('|');
+  const convDe = m => (m.para_id ? par(m.autor_id, m.para_id) : 'g');
+  const otroDe = k => k.split('|').find(id => id !== st.uid);
+  const esMia = k => k === 'g' || k.split('|').includes(st.uid);
+  let activa = 'g';
+  const abiertas = new Set();          // privados abiertos sin mensajes todavía
+  const sinLeer = new Set();
+  const etiqueta = k => k === 'g' ? '💬 General'
+    : esMia(k) ? `🔒 ${esc(nombreCorto(otroDe(k)))}`
+    : `👁 ${k.split('|').map(id => esc(nombreCorto(id))).join(' · ')}`;
+  const pintarTabs = () => {
+    const ultima = new Map();
+    msgs.forEach(m => ultima.set(convDe(m), m.created_at));
+    const privs = [...new Set([...ultima.keys(), ...abiertas])].filter(k => k !== 'g')
+      .sort((a, b) => esMia(b) - esMia(a) || String(ultima.get(b) || '9').localeCompare(String(ultima.get(a) || '9')));
+    tabs.innerHTML = ['g', ...privs].map(k => `<button type="button" class="chat-tab${k === activa ? ' activo' : ''}${k !== 'g' ? ' priv' : ''}" data-conv="${k}">${etiqueta(k)}${sinLeer.has(k) ? '<i class="punto"></i>' : ''}</button>`).join('')
+      + '<button type="button" class="chat-tab mas" data-priv-nuevo aria-label="Nuevo mensaje privado">＋ Privado</button>';
+    const mia = esMia(activa);
+    form.hidden = !mia;
+    soloVer.hidden = mia;
+    if (!mia) soloVer.textContent = `Conversación privada entre ${activa.split('|').map(nombreDe).join(' y ')}. Como admin solo puedes leerla.`;
+    form.querySelector('[data-at]').hidden = activa !== 'g';
+    form.texto.placeholder = activa === 'g' ? 'Escribe… usa @ para mencionar' : `Mensaje privado para ${nombreCorto(otroDe(activa))}`;
+  };
+  const cambiarA = k => { activa = k; sinLeer.delete(k); nuevoPriv.hidden = true; pintarTabs(); pintar(); };
   const fmtMsg = iso => {
     const d = new Date(iso);
     return claveDia(d) === claveDia(new Date()) ? fmtHora(d) : `${fmtCorta(d)} ${fmtHora(d)}`;
   };
   const pintar = (bajar = true) => {
-    lista.innerHTML = msgs.length ? msgs.map(m => `
+    const ver = msgs.filter(m => convDe(m) === activa);
+    lista.innerHTML = ver.length ? ver.map(m => `
       <div class="chat-msg ${m.autor_id === st.uid ? 'mio' : ''}${m._nuevo ? ' nuevo' : ''}${m.autor_id !== st.uid && mencionaA(m.texto, s) ? ' me-nombra' : ''}" data-id="${m.id}">
         ${m.autor_id === st.uid ? '' : `<b>${esc(nombreDe(m.autor_id))}</b>`}
         <p>${textoConMenciones(m.texto, s)}<small>${esc(fmtMsg(m.created_at))}</small>${m.autor_id === st.uid || esAdmin()
           ? `<button class="x" data-msg="${m.id}" aria-label="Borrar mensaje">✕</button>` : ''}</p>
-      </div>`).join('') : '<div class="chat-vacio">Sin mensajes. ¡Escribe el primero!</div>';
+      </div>`).join('') : `<div class="chat-vacio">${activa === 'g' ? 'Sin mensajes. ¡Escribe el primero!' : `🔒 Solo ${esc(nombreCorto(otroDe(activa)))} y tú ven estos mensajes (y los admins).`}</div>`;
     if (bajar) lista.scrollTop = lista.scrollHeight;
     msgs.forEach(m => delete m._nuevo);
   };
@@ -2783,8 +2814,11 @@ async function iniciarChat(s, ctx) {
   if (!ctx.vigente()) return;
   if (r.error) { lista.innerHTML = '<div class="chat-vacio">No se pudo cargar el chat.</div>'; return; }
   msgs = r.data || [];
-  pintar();
   const irA = ctx.q.get('men');
+  const msgIr = irA && msgs.find(m => m.id === irA);
+  if (msgIr) activa = convDe(msgIr);
+  pintarTabs();
+  pintar();
   const objetivo = irA && lista.querySelector(`[data-id="${CSS.escape(irA)}"]`);
   if (objetivo) {
     lista.scrollTop = objetivo.offsetTop - 40;
@@ -2797,7 +2831,9 @@ async function iniciarChat(s, ctx) {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_evento', filter: `setlist_id=eq.${s.id}` }, ({ new: m }) => {
       if (!ctx.vigente() || msgs.some(x => x.id === m.id)) return;
       const abajo = lista.scrollHeight - lista.scrollTop - lista.clientHeight < 60;
-      m._nuevo = true; msgs.push(m); pintar(abajo || m.autor_id === st.uid);
+      m._nuevo = true; msgs.push(m);
+      if (convDe(m) !== activa) { if (m.autor_id !== st.uid) sinLeer.add(convDe(m)); delete m._nuevo; pintarTabs(); return; }
+      pintarTabs(); pintar(abajo || m.autor_id === st.uid);
     })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mensajes_evento' }, ({ old }) => {
       if (!ctx.vigente() || !msgs.some(x => x.id === old.id)) return;
@@ -2805,6 +2841,26 @@ async function iniciarChat(s, ctx) {
     })
     .subscribe();
   st.limpiar.push(() => sb.removeChannel(canal));
+
+  // pestañas y "＋ Privado": elegir a alguien del equipo del día
+  tabs.onclick = e => {
+    const t = e.target.closest('[data-conv]');
+    if (t) return cambiarA(t.dataset.conv);
+    if (!e.target.closest('[data-priv-nuevo]')) return;
+    if (!nuevoPriv.hidden) { nuevoPriv.hidden = true; return; }
+    const ids = [...new Set((s.asignaciones || []).filter(a => a.perfil_id !== st.uid && a.estado !== 'rechazado').map(a => a.perfil_id))];
+    const rolDe = id => (s.asignaciones || []).filter(a => a.perfil_id === id).map(a => `${ICON_INSTR[a.rol] || '🎵'} ${ROLES[a.rol] || a.rol}`).join(' + ');
+    nuevoPriv.innerHTML = `<div class="ayuda" style="margin:0 0 6px">Mensaje privado con alguien que sirve este día:</div>
+      ${ids.map(id => `<button type="button" class="chat-persona" data-con="${id}"><span class="avatar sm">${esc(iniciales(nombreDe(id)))}</span><span><b>${esc(nombreDe(id))}</b><small>${esc(rolDe(id))}</small></span></button>`).join('')
+        || '<p class="ayuda" style="margin:0">Todavía no hay más personas asignadas a este día.</p>'}`;
+    nuevoPriv.hidden = false;
+  };
+  nuevoPriv.onclick = e => {
+    const b = e.target.closest('[data-con]');
+    if (!b) return;
+    const k = par(st.uid, b.dataset.con);
+    abiertas.add(k); cambiarA(k); form.texto.focus();
+  };
 
   lista.onclick = async e => {
     const b = e.target.closest('[data-msg]');
@@ -2876,11 +2932,18 @@ async function iniciarChat(s, ctx) {
     if (!texto) return;
     const btn = form.querySelector('[type=submit]');
     btn.disabled = true;
-    const { data, error } = await sb.from('mensajes_evento').insert({ setlist_id: s.id, texto, autor_id: st.uid }).select().single();
+    const fila = { setlist_id: s.id, texto, autor_id: st.uid };
+    if (activa !== 'g') fila.para_id = otroDe(activa);
+    const { data, error } = await sb.from('mensajes_evento').insert(fila).select().single();
     btn.disabled = false;
-    if (error) return fallo(error, 'Chat');
+    if (error) {
+      if (fila.para_id && (error.code === 'PGRST204' || /para_id/.test(error.message || ''))) {
+        return toast(esAdmin() ? 'Ejecuta supabase/011_chat_privado.sql en Supabase' : 'Los mensajes privados aún no están activados', true);
+      }
+      return fallo(error, 'Chat');
+    }
     ta.value = ''; menMapa.clear(); ta.oninput();
-    if (!msgs.some(x => x.id === data.id)) { msgs.push(data); pintar(); }
+    if (!msgs.some(x => x.id === data.id)) { msgs.push(data); pintarTabs(); pintar(); }
   };
 }
 
@@ -3394,13 +3457,13 @@ async function iniciarGlobal() {
   ponerBadgeMen(r.count || 0, !!r.count);
   st.canalGlobal = sb.channel('menciones-' + st.uid)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'menciones', filter: `perfil_id=eq.${st.uid}` }, async ({ new: m }) => {
-      const { data } = await sb.from('mensajes_evento').select('autor_id, setlist_id').eq('id', m.mensaje_id).maybeSingle();
+      const { data } = await sb.from('mensajes_evento').select('*').eq('id', m.mensaje_id).maybeSingle();
       if (data && location.hash.startsWith('#/dia/' + data.setlist_id)) {
         await sb.from('menciones').update({ leido_at: new Date().toISOString() }).eq('id', m.id);
         return;
       }
       ponerBadgeMen(st.menNoLeidas + 1, true);
-      if (data) aviso(`💬 ${nombreDe(data.autor_id)} te mencionó · toca para ver`, `#/dia/${data.setlist_id}?men=${m.mensaje_id}`);
+      if (data) aviso(data.para_id ? `🔒 Mensaje privado de ${nombreDe(data.autor_id)} · toca para ver` : `💬 ${nombreDe(data.autor_id)} te mencionó · toca para ver`, `#/dia/${data.setlist_id}?men=${m.mensaje_id}`);
     })
     .subscribe();
 }
@@ -3440,7 +3503,7 @@ async function modalMenciones() {
   if (st.faltaV7) return toast(esAdmin() ? 'Ejecuta supabase/007_menciones_push.sql en Supabase' : 'Las menciones aún no están activadas', true);
   abrirModal('Menciones', '<div class="spinner"></div>');
   const { data, error } = await conCache('menciones', sb.from('menciones')
-    .select('id, leido_at, created_at, mensaje:mensajes_evento(id, texto, autor_id, setlist_id, setlist:setlists(titulo, fecha))')
+    .select('id, leido_at, created_at, mensaje:mensajes_evento(*, setlist:setlists(titulo, fecha))')
     .eq('perfil_id', st.uid).order('created_at', { ascending: false }).limit(40));
   if (!dlg.open) return;
   if (error) { abrirModal('Menciones', '<div class="vacio">No se pudieron cargar las menciones.</div>'); return; }
@@ -3452,7 +3515,7 @@ async function modalMenciones() {
       <a class="men-item${m.leido_at ? '' : ' no-leida'}" href="#/dia/${m.mensaje.setlist_id}?men=${m.mensaje.id}">
         <span class="avatar sm">${esc(iniciales(nombreDe(m.mensaje.autor_id)))}</span>
         <span class="info">
-          <span class="quien"><b>${esc(nombreDe(m.mensaje.autor_id))}</b><small>${esc(haceCuanto(m.created_at))}</small></span>
+          <span class="quien"><b>${m.mensaje.para_id ? '🔒 ' : ''}${esc(nombreDe(m.mensaje.autor_id))}</b><small>${esc(haceCuanto(m.created_at))}</small></span>
           <span class="donde">${esc(m.mensaje.setlist?.titulo || 'Chat del día')}${m.mensaje.setlist?.fecha ? ' · ' + esc(fmtCorta(m.mensaje.setlist.fecha)) : ''}</span>
           <span class="txt">${textoConMenciones(m.mensaje.texto, null)}</span>
         </span>

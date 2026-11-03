@@ -82,12 +82,18 @@ export function transponerAcorde(acorde, semis, bemoles, latino = false) {
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/** Separa paréntesis pegados a un acorde: "(Fm" → { pre: '(', ch: 'Fm', post: '' } */
+export function partirTok(t) {
+  const m = /^([(]*)(.*?)([)]*)$/.exec(t);
+  return { pre: m[1], ch: m[2], post: m[3] };
+}
+
 export function esLineaDeAcordes(linea) {
   if (linea.includes('[')) return false;
   const toks = linea.trim().split(/\s+/).filter(Boolean);
   if (!toks.length) return false;
-  // Permitir marcadores comunes como "|", "x2", "(x2)"
-  const utiles = toks.filter(t => !/^(\||\(?x\d+\)?|-+)$/i.test(t));
+  // Permitir marcadores comunes como "|", "-", "x2", "(x2)", "(", ")" y acordes entre paréntesis "( Fm Db Eb )"
+  const utiles = toks.map(t => partirTok(t).ch).filter(t => t && !/^(\||x\d+|-+|\/+)$/i.test(t));
   return utiles.length > 0 && utiles.every(esAcorde);
 }
 
@@ -97,7 +103,8 @@ function transponerLineaDeAcordes(linea, semis, bemoles, latino) {
   const re = /\S+/g;
   let m;
   while ((m = re.exec(linea))) {
-    const tok = esAcorde(m[0]) ? transponerAcorde(m[0], semis, bemoles, latino) : m[0];
+    const p = partirTok(m[0]);
+    const tok = esAcorde(p.ch) ? p.pre + transponerAcorde(p.ch, semis, bemoles, latino) + p.post : m[0];
     if (out.length < m.index) out += ' '.repeat(m.index - out.length);
     else if (out.length) out += ' ';
     out += tok;
@@ -105,12 +112,47 @@ function transponerLineaDeAcordes(linea, semis, bemoles, latino) {
   return out;
 }
 
+// Nombres de partes de la canción (español e inglés)
+const PARTES = 'intro|introducci[oó]n|verso|estrofa|pre-?coro|precoro|pre coro|coro|estribillo|refr[aá]n|puente|interludio|instrumental|final|outro|coda|tag|vamp|solo|rap|declaraci[oó]n|ministraci[oó]n|espont[aá]neo|vers[eo]|chorus|pre-?chorus|bridge|interlude|ending|turnaround|post-?coro|post-?chorus|parte\\s+[a-z0-9]';
+const RE_PARTE = new RegExp(`^(?:${PARTES})(?:\\s*\\d+)?(?:\\s*\\(?\\s*x\\s*\\d+\\s*\\)?)?$`, 'i');
+const limpiaEtiqueta = t => t.replace(/^[\[(\s]+|[\])\s:]+$/g, '').replace(/\s+/g, ' ').trim();
+/** Nombre de la parte con mayúscula inicial ("CORO 2" → "Coro 2") */
+const bonito = t => (t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase() : t.charAt(0).toUpperCase() + t.slice(1));
+
+/** Si la línea es el nombre de una parte (Coro, [Estrofa 1], (Puente), CORO:, Intro x2…) devuelve el nombre. */
 export function etiquetaSeccion(linea) {
   const t = linea.trim();
+  if (!t) return null;
   let m = /^\{\s*(?:c|comment|soc|sot)?\s*:?\s*([^}]*)\}$/i.exec(t);
   if (m) return m[1].trim();
-  if (!t.includes('[') && t.length <= 40 && /:$/.test(t) && !esLineaDeAcordes(t.slice(0, -1))) return t.slice(0, -1).trim();
+  // [Coro] solo en la línea: cualquier nombre que no sea acorde ([Parte A], [Final]…)
+  m = /^\[\s*([^\]]{1,30}?)\s*\]\s*:?$/.exec(t);
+  if (m && !esAcorde(m[1]) && !esLineaDeAcordes(m[1]) && !/^x\s*\d+$/i.test(m[1])) return bonito(m[1].trim());
+  if (!t.includes('[') && t.length <= 40 && /:$/.test(t) && !esLineaDeAcordes(t.slice(0, -1))) return bonito(t.slice(0, -1).trim());
+  // Coro, ESTROFA 2, Puente x2 (sin dos puntos)
+  if (t.length <= 30 && RE_PARTE.test(limpiaEtiqueta(t))) return bonito(limpiaEtiqueta(t));
   return null;
+}
+
+/**
+ * Ordena formatos comunes antes de leer la letra:
+ *  "[Intro] Fm  Db  Eb" / "Intro: Fm Db Eb" / "CORO Fm Db" → "Intro:" + línea de acordes.
+ */
+export function normalizarLetra(texto) {
+  const out = [];
+  for (const l of String(texto || '').replace(/\r/g, '').split('\n')) {
+    const m = /^(\s*)(\[[^\]]{1,30}\]|\([^)]{1,30}\)|[^\s:\[\]()][^:\[\]()]{0,28}:|\S+(?:\s+\d)?)\s+(.*\S.*)$/.exec(l);
+    if (m) {
+      const nombre = etiquetaSeccion(m[2]);
+      if (nombre !== null && esLineaDeAcordes(m[3])) {
+        out.push(nombre + ':');
+        out.push(m[3]);
+        continue;
+      }
+    }
+    out.push(l);
+  }
+  return out.join('\n');
 }
 
 /**
@@ -119,7 +161,7 @@ export function etiquetaSeccion(linea) {
  * @param {object} op { semis, bemoles, acordes (mostrar), latino }
  */
 export function renderLetra(texto, { semis = 0, bemoles = false, acordes = true, latino = false } = {}) {
-  const lineas = String(texto || '').replace(/\r/g, '').split('\n');
+  const lineas = normalizarLetra(texto).split('\n');
   const formatoClasico = lineas.some(esLineaDeAcordes);
   const html = [];
   for (const linea of lineas) {
@@ -169,8 +211,11 @@ export function renderLetra(texto, { semis = 0, bemoles = false, acordes = true,
 
 /** Detecta el primer acorde de la letra (útil para sugerir el tono original). */
 export function primerAcorde(texto) {
-  const m = /\[([A-G][#b]?m?)/.exec(texto || '');
-  if (m) return m[1];
+  texto = normalizarLetra(texto);
+  // primer [acorde] que de verdad sea acorde (no [Coro] ni [Bridge])
+  const ac = [...texto.matchAll(/\[([^\]]+)\]/g)].map(x => x[1].trim()).find(esAcorde);
+  const m = ac && /^([A-G][#b]?)(m(?!aj))?/.exec(ac);
+  if (m) return m[1] + (m[2] || '');
   for (const l of String(texto || '').split('\n')) {
     if (esLineaDeAcordes(l)) {
       const tok = l.trim().split(/\s+/).find(esAcorde);
@@ -202,7 +247,7 @@ export function acordesDelTono(tono) {
  * respetando la columna donde está cada acorde.
  */
 export function aCorchetes(texto) {
-  const lineas = String(texto || '').replace(/\r/g, '').split('\n');
+  const lineas = normalizarLetra(texto).split('\n');
   const out = [];
   for (let i = 0; i < lineas.length; i++) {
     const l = lineas[i];
@@ -212,12 +257,14 @@ export function aCorchetes(texto) {
     while ((m = re.exec(l))) acordes.push({ col: m.index, ch: m[0] });
     const sig = lineas[i + 1];
     const esLetra = sig !== undefined && sig.trim() && !esLineaDeAcordes(sig) && etiquetaSeccion(sig) === null;
-    if (!esLetra) { out.push(acordes.map(a => (esAcorde(a.ch) ? `[${a.ch}]` : a.ch)).join(' ')); continue; }
+    const corch = t => { const p = partirTok(t); return esAcorde(p.ch) ? `${p.pre}[${p.ch}]${p.post}` : t; };
+    if (!esLetra) { out.push(acordes.map(a => corch(a.ch)).join(' ')); continue; }
     let letra = sig;
     const largo = Math.max(...acordes.map(a => a.col));
     if (letra.length < largo) letra = letra.padEnd(largo, ' ');
     for (const a of [...acordes].reverse()) {
-      const tok = esAcorde(a.ch) ? `[${a.ch}]` : '';
+      const p = partirTok(a.ch);
+      const tok = esAcorde(p.ch) ? `[${p.ch}]` : '';
       letra = letra.slice(0, a.col) + tok + letra.slice(a.col);
     }
     out.push(letra.replace(/\s+$/, ''));

@@ -29,28 +29,51 @@ export function seccionDe(linea) {
   return m ? t.replace(/[()]/g, '').trim() : null;
 }
 
-/** Arma un borrador de cifrado desde la letra: 1 acorde = 1 compás, secciones detectadas. */
+/**
+ * Arma un borrador de cifrado desde la letra: 1 acorde = 1 compás.
+ * Las partes se toman de los nombres (Coro, Estrofa, Puente…); si no hay nombre,
+ * cada bloque separado por una línea en blanco es una parte. Una parte con la misma
+ * progresión que otra anterior lleva la misma letra (y nombre).
+ */
 export function generarCifrado(letra) {
   const lineas = aCorchetes(String(letra || '').replace(/\r/g, '')).split('\n');
   const secciones = [];
-  const letras = new Map();   // nombre normalizado -> letra de sección
-  let actual = null;
-  const nuevaSeccion = nombre => {
-    let clave = nombre ? normalizar(nombre) : '';
-    if (!clave) clave = `__${secciones.length}`;
-    if (!letras.has(clave)) letras.set(clave, String.fromCharCode(65 + Math.min(letras.size, 25)));
-    actual = { letra: letras.get(clave), nombre: nombre || '', acordes: [] };
-    secciones.push(actual);
-  };
+  let actual = null, blanco = false;
+  const nueva = nombre => { actual = { nombre: nombre || '', acordes: [], conLetra: false }; secciones.push(actual); };
   for (const l of lineas) {
+    if (!l.trim()) { blanco = true; continue; }
     const sec = seccionDe(l);
-    if (sec !== null) { nuevaSeccion(sec); continue; }
+    if (sec !== null) { nueva(sec); blanco = false; continue; }
     const acordes = [...l.matchAll(/\[([^\]]+)\]/g)].map(m => m[1].trim()).filter(esAcorde);
     if (!acordes.length) continue;
-    if (!actual) nuevaSeccion('');
+    // después de una línea en blanco empieza otra parte (si la actual ya tenía acordes)
+    if (!actual || (blanco && actual.acordes.length)) nueva('');
+    blanco = false;
     actual.acordes.push(...acordes);
+    if (/[a-záéíóúñ]{2}/i.test(l.replace(/\[[^\]]*\]/g, ''))) actual.conLetra = true;
   }
-  return secciones.filter(s => s.acordes.length).map(s => {
+  const conAc = secciones.filter(s => s.acordes.length);
+  const porNombre = new Map(), porProg = new Map();
+  let sig = 0;
+  const letraNueva = () => String.fromCharCode(65 + Math.min(sig++, 25));
+  for (const s of conAc) {
+    const prog = s.acordes.join(' ');
+    // "( Fm Db Eb ) ( Fm Db Eb )" cuenta igual que "Fm Db Eb"
+    const base = (s.conLetra ? 'L:' : 'I:') + (() => { const a = s.acordes; for (let n = 1; n <= a.length / 2; n++) if (a.length % n === 0 && a.every((x, i) => x === a[i % n])) return a.slice(0, n).join(' '); return prog; })();
+    if (s.nombre) {
+      const clave = normalizar(s.nombre);
+      if (!porNombre.has(clave)) porNombre.set(clave, letraNueva());
+      s.letra = porNombre.get(clave);
+      if (!porProg.has(base)) porProg.set(base, s);
+    } else if (porProg.has(base)) {
+      const igual = porProg.get(base);
+      s.letra = igual.letra; s.nombre = igual.nombre;
+    } else {
+      s.letra = letraNueva();
+      porProg.set(base, s);
+    }
+  }
+  return conAc.map(s => {
     const filas = [];
     for (let i = 0; i < s.acordes.length; i += POR_FILA) filas.push('| ' + s.acordes.slice(i, i + POR_FILA).join(' | ') + ' |');
     return `*${s.letra}${s.nombre ? ' ' + s.nombre : ''}\n${filas.join('\n')}`;
