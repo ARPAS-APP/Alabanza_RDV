@@ -148,7 +148,7 @@ export function crearDiscipulado(api) {
       </div>
       ${misDiscipulos(e).length ? `<a class="item d-fila" href="#/d/discipulos"><span class="d-mini-ico">🌱</span><div class="info"><b>Mis discípulos (${misDiscipulos(e).length})</b><small>${atencion ? `${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención` : 'Todos al día'}</small></div>›</a>` : ''}
       ${esPastor() ? `<a class="item d-fila" href="#/d/gestion"><span class="d-mini-ico">🛠️</span><div class="info"><b>Gestionar Discipulado</b><small>Devocionales, retos y personas</small></div>›</a>` : ''}
-      ${!miMentor(e) && !misDiscipulos(e).length && !esPastor() ? '<p class="ayuda" style="text-align:center">Todavía no tienes mentor asignado. El pastor te lo asignará pronto.</p>' : ''}`;
+      ${!miMentor(e) && !misDiscipulos(e).length && !esPastor() ? '<p class="ayuda" style="text-align:center">Todavía no tienes mentor asignado. Quien te invitó te lo asignará pronto.</p>' : ''}`;
   }
 
   const barra = (n, total) => `<div class="d-barra"><i style="width:${Math.min(100, Math.round(100 * n / Math.max(1, total)))}%"></i></div>`;

@@ -58,6 +58,16 @@ function aplicarTema() {
 aplicarTema();
 mqClaro.addEventListener?.('change', aplicarTema);
 
+// ---------- marca: Discipulado va con el nombre y el logo de Arpas ----------
+function aplicarMarca(disc) {
+  const fija = (sel, attr, v) => document.querySelector(sel)?.setAttribute(attr, v);
+  fija('link[rel="manifest"]', 'href', disc ? 'manifest-arpas.webmanifest' : 'manifest.webmanifest');
+  fija('link[rel="apple-touch-icon"]', 'href', disc ? 'icons/arpas-icon-180.png' : 'icons/apple-touch-icon.png');
+  fija('link[rel="icon"]', 'href', disc ? 'icons/arpas-mark.svg' : 'icons/favicon-32.png');
+  fija('meta[name="apple-mobile-web-app-title"]', 'content', disc ? 'Arpas' : 'Alabanza');
+  document.title = disc ? 'Arpas · Discipulado' : APP_NOMBRE;
+}
+
 const $ = (s, el = document) => el.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -197,7 +207,7 @@ async function ocupado(btn, fn) {
 function encabezado(titulo, { sub = '', atras = null, derecha = '' } = {}) {
   const izq = atras
     ? `<button class="atras" data-atras="${esc(atras)}" aria-label="Volver">‹</button>`
-    : `<img src="icons/logo.png" alt="">`;
+    : st.modulo === 'discipulado' ? `<img src="icons/arpas-mark.svg" alt="Arpas">` : `<img src="icons/logo.png" alt="">`;
   const disc = st.modulo === 'discipulado';
   const cambio = tieneAlabanza() && discRol()
     ? (disc ? `<a class="mod-chip" href="#/muro" title="Ir a Alabanza">🎵 Alabanza</a>` : `<a class="mod-chip" href="#/d/inicio" title="Ir a Discipulado">🌱 Discipulado</a>`) : '';
@@ -236,7 +246,9 @@ async function arrancar(session) {
     $('#nav').hidden = true; $('#navD').hidden = true;
     disc.olvidar(); document.body.classList.remove('mod-disc');
     const reg = /^#\/registro/.test(location.hash);
-    return vistaAuth(reg ? 'registro' : 'login', null, reg ? new URLSearchParams(location.hash.split('?')[1] || '').get('m') : null);
+    // Quien usaba Discipulado vuelve a ver la entrada de Discipulado (con Arpas)
+    const pre = (reg ? new URLSearchParams(location.hash.split('?')[1] || '').get('m') : null) || (ajustes.modulo === 'discipulado' ? 'discipulado' : null);
+    return vistaAuth(reg ? 'registro' : 'login', null, pre);
   }
   let { data: perfil, error } = await conCache('perfil', sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle());
   if (!perfil && !error) {
@@ -289,12 +301,13 @@ async function cargarPerfiles() {
 // =====================================================================
 function vistaAuth(modo = 'login', aviso = null, pre = null) {
   document.body.classList.toggle('mod-disc', pre === 'discipulado');
+  aplicarMarca(pre === 'discipulado');
   const titulos = { login: 'Entrar', registro: 'Crear cuenta', olvido: 'Recuperar contraseña' };
   app.innerHTML = `
   <div class="auth">
-    <img class="logo" src="icons/logo.png" alt="Roca de Vida Panamá">
+    ${pre === 'discipulado' ? '<img class="logo logo-arpas" src="icons/arpas-logo.svg" alt="Arpas">' : '<img class="logo" src="icons/logo.png" alt="Roca de Vida Panamá">'}
     <h1>${esc(pre === 'discipulado' ? 'Discipulado' : APP_NOMBRE)}</h1>
-    <p class="lema">${pre === 'discipulado' ? 'Roca de Vida Panamá' : 'Equipo de alabanza'}</p>
+    <p class="lema">${pre === 'discipulado' ? 'Seguimiento, oración y crecimiento' : 'Equipo de alabanza'}</p>
     ${modo !== 'olvido' ? `<div class="tabs-auth">
       <button type="button" data-modo="login" class="${modo === 'login' ? 'activo' : ''}">Entrar</button>
       <button type="button" data-modo="registro" class="${modo === 'registro' ? 'activo' : ''}">Crear cuenta</button>
@@ -344,9 +357,13 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
 
 function vistaPendiente(sinModulo = false) {
   const bloqueado = st.perfil?.estado === 'bloqueado';
+  const sol = st.perfil?.solicita || [];
+  const disc = sol.includes('discipulado') && !sol.includes('alabanza');
+  document.body.classList.toggle('mod-disc', disc);
+  aplicarMarca(disc);
   app.innerHTML = `
   <div class="auth" style="text-align:center">
-    <img class="logo" src="icons/logo.png" alt="">
+    ${disc ? '<img class="logo logo-arpas" src="icons/arpas-logo.svg" alt="Arpas">' : '<img class="logo" src="icons/logo.png" alt="">'}
     <h1>${bloqueado ? 'Acceso desactivado' : '¡Ya casi!'}</h1>
     <p class="lema">${bloqueado
       ? 'Tu cuenta fue desactivada. Habla con un administrador del equipo.'
@@ -401,7 +418,7 @@ function rutear() {
     : nombre === 'd' ? 'discipulado' : 'alabanza';
   if (modulo === 'discipulado' && !discRol()) { location.replace('#/muro'); return; }
   if (modulo === 'alabanza' && !tieneAlabanza()) { location.replace('#/d/inicio'); return; }
-  if (st.modulo !== modulo) { st.modulo = modulo; aplicarTema(); }
+  if (st.modulo !== modulo || !st.marcaLista) { st.modulo = modulo; st.marcaLista = true; aplicarTema(); aplicarMarca(modulo === 'discipulado'); }
   if (ajustes.modulo !== modulo && nombre !== 'perfil') { ajustes.modulo = modulo; guardarAjustes(); }
   document.body.classList.toggle('mod-disc', modulo === 'discipulado');
   $('#nav').hidden = modulo !== 'alabanza';
@@ -3701,7 +3718,7 @@ function vistaPerfil() {
     </div>` : ''}
     <button class="btn blk" id="bClave">Cambiar contraseña</button>
     <button class="btn peligro blk" id="bSalir">Cerrar sesión</button>
-    <p class="ayuda" style="text-align:center;margin-top:20px">${esc(APP_NOMBRE)}</p>`;
+    <p class="ayuda" style="text-align:center;margin-top:20px">${esc(st.modulo === 'discipulado' ? 'Arpas · Discipulado' : APP_NOMBRE)}</p>`;
   $('#fPerfil').onsubmit = e => {
     e.preventDefault();
     ocupado(e.target.querySelector('button'), async () => {

@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
   const ahora = fecha(new Date());
   const L: string[] = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Alabanza RDV//Mis dias//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    `X-WR-CALNAME:${mentorias.length ? 'Roca de Vida' : 'Alabanza RDV'} · Mis días`, 'X-WR-TIMEZONE:America/Panama',
+    `X-WR-CALNAME:${mentorias.length ? 'Arpas' : 'Alabanza RDV'} · Mis días`, 'X-WR-TIMEZONE:America/Panama',
     'REFRESH-INTERVAL;VALUE=DURATION:PT2H', 'X-PUBLISHED-TTL:PT2H',
   ];
   for (const { s, asig } of dias.values()) {

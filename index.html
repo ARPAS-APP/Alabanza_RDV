@@ -24,6 +24,16 @@
   <div id="app">
     <div class="cargando"><img src="icons/logo.png" alt="" class="logo-pulso"></div>
   </div>
+  <script>
+    // Discipulado abre con el logo de Arpas
+    try {
+      var h = location.hash, aj = JSON.parse(localStorage.getItem('alabanza.ajustes')) || {};
+      if (/m=discipulado|^#\/d\//.test(h) || ((!h || h === '#/') && aj.modulo === 'discipulado')) {
+        document.querySelector('.logo-pulso').src = 'icons/arpas-mark.svg';
+        document.body.classList.add('mod-disc');
+      }
+    } catch (e) {}
+  </script>
 
   <nav id="nav" class="nav" hidden>
     <a href="#/muro" data-tab="muro"><span class="ico">📣</span><span>Muro</span></a>
