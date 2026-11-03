@@ -288,12 +288,13 @@ async function cargarPerfiles() {
 // Login / registro
 // =====================================================================
 function vistaAuth(modo = 'login', aviso = null, pre = null) {
+  document.body.classList.toggle('mod-disc', pre === 'discipulado');
   const titulos = { login: 'Entrar', registro: 'Crear cuenta', olvido: 'Recuperar contraseña' };
   app.innerHTML = `
   <div class="auth">
     <img class="logo" src="icons/logo.png" alt="Roca de Vida Panamá">
-    <h1>${esc(pre === 'discipulado' ? 'Roca de Vida · Discipulado' : APP_NOMBRE)}</h1>
-    <p class="lema">Alabanza · Discipulado</p>
+    <h1>${esc(pre === 'discipulado' ? 'Discipulado' : APP_NOMBRE)}</h1>
+    <p class="lema">${pre === 'discipulado' ? 'Roca de Vida Panamá' : 'Equipo de alabanza'}</p>
     ${modo !== 'olvido' ? `<div class="tabs-auth">
       <button type="button" data-modo="login" class="${modo === 'login' ? 'activo' : ''}">Entrar</button>
       <button type="button" data-modo="registro" class="${modo === 'registro' ? 'activo' : ''}">Crear cuenta</button>
@@ -301,11 +302,7 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
     <form id="fAuth" autocomplete="on">
       ${modo === 'registro' ? `
         <label>Nombre</label><input name="nombre" required maxlength="60" autocomplete="name" placeholder="Cómo te conoce la iglesia">
-        <fieldset class="mods-reg"><legend>¿A qué quieres entrar?</legend>
-          <label class="check"><input type="checkbox" name="mod" value="alabanza" ${pre !== 'discipulado' ? 'checked' : ''}> 🎵 Alabanza</label>
-          <label class="check"><input type="checkbox" name="mod" value="discipulado" ${pre === 'discipulado' ? 'checked' : ''}> 🌱 Discipulado</label>
-        </fieldset>
-        <div id="campoInstr" ${pre === 'discipulado' ? 'hidden' : ''}><label>¿Qué haces en el equipo de alabanza?</label><select name="instrumento"><option value="">Elige…</option>${opcionesInstrumento('')}</select></div>` : ''}
+        ${pre === 'discipulado' ? '' : `<label>¿Qué haces en el equipo?</label><select name="instrumento" required><option value="">Elige…</option>${opcionesInstrumento('')}</select>`}` : ''}
       <label>Correo</label><input name="email" type="email" required autocomplete="email" inputmode="email">
       ${modo !== 'olvido' ? `<label>Contraseña</label><input name="clave" type="password" required minlength="6" autocomplete="${modo === 'login' ? 'current-password' : 'new-password'}">` : ''}
       <button class="btn prim blk" type="submit">${titulos[modo]}</button>
@@ -315,13 +312,11 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
     ${modo === 'olvido' ? `<button class="link" data-modo="login">‹ Volver a entrar</button>` : ''}
   </div>`;
   app.onclick = e => { const b = e.target.closest('[data-modo]'); if (b) vistaAuth(b.dataset.modo, null, pre); };
-  app.onchange = e => {
-    if (e.target.name === 'mod') $('#campoInstr').hidden = !$('#fAuth').querySelector('input[name=mod][value=alabanza]').checked;
-  };
   $('#fAuth').onsubmit = async e => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
-    const solicita = new FormData(e.target).getAll('mod');
+    // Cada link registra en un solo ministerio: el de invitación (?m=discipulado) solo en Discipulado
+    const solicita = [pre === 'discipulado' ? 'discipulado' : 'alabanza'];
     const btn = e.target.querySelector('button[type=submit]');
     const msg = (txt, err = true) => ($('#authMsg').innerHTML = `<div class="msg ${err ? 'err' : 'ok'}">${esc(txt)}</div>`);
     btn.disabled = true;
@@ -331,11 +326,9 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
         if (error) msg(/invalid login/i.test(error.message) ? 'Correo o contraseña incorrectos.'
           : /not confirmed/i.test(error.message) ? 'Primero confirma tu correo (revisa tu bandeja y spam).' : error.message);
       } else if (modo === 'registro') {
-        if (!solicita.length) { msg('Elige al menos un ministerio.'); return; }
-        if (solicita.includes('alabanza') && !f.instrumento) { msg('Elige qué haces en el equipo de alabanza.'); return; }
         const { data, error } = await sb.auth.signUp({
           email: f.email.trim(), password: f.clave,
-          options: { data: { nombre: f.nombre.trim(), instrumento: solicita.includes('alabanza') ? f.instrumento : '', solicita }, emailRedirectTo: baseUrl() },
+          options: { data: { nombre: f.nombre.trim(), instrumento: f.instrumento || '', solicita }, emailRedirectTo: baseUrl() },
         });
         if (error) msg(/already registered/i.test(error.message) ? 'Ese correo ya tiene cuenta. Usa "Entrar".'
           : /rate limit/i.test(error.message) ? 'Hay muchos registros seguidos. Espera unos minutos e inténtalo de nuevo.' : error.message);
