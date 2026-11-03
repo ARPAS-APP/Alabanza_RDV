@@ -856,18 +856,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 /* =====================================================================
    DISCIPULADO · paleta tierra (terracota, oliva, arena, salvia, azul grisáceo)
    ===================================================================== */
+/* Siempre la paleta clara elegida, aunque el celular esté en modo oscuro */
 body.mod-disc {
-  --bg: #23251b; --bg-2: #2b2e22; --card: #2e3124; --card-2: #383b2d; --linea: #45493a;
-  --texto: #f1eadf; --texto-2: #cfc6b4; --texto-3: #a39b89;
-  --acento: #c9a57e; --acento-2: #dcbf9a; --acento-txt: #2b2a22;
-  --ok: #a9b58f; --peligro: #e08a6e; --info: #9db0b8;
-  --nav-bg: rgba(35, 37, 27, .9); --suave: rgba(255, 255, 255, .07);
-  --msg-err: #f0b4a0; --msg-ok: #cbd5b0; --offline-bg: #3a3322;
-  --d-hero: #3f4330; --d-hero-txt: #f1eadf; --d-hero-2: #ddd6c3; --d-hero-linea: #555a42;
-  --d-arena: #c9a57e; --d-arena-suave: rgba(201, 165, 126, .16); --d-salvia: rgba(169, 181, 143, .16);
-  color-scheme: dark;
-}
-:root[data-tema="claro"] body.mod-disc {
   --bg: #f7f2ea; --bg-2: #efe7da; --card: #ffffff; --card-2: #f4ede2; --linea: #e2d7c6;
   --texto: #3f4330; --texto-2: #6a6656; --texto-3: #7d776a;
   --acento: #9c5535; --acento-2: #8a4a2e; --acento-txt: #ffffff;
@@ -878,19 +868,7 @@ body.mod-disc {
   --d-arena: #c9a57e; --d-arena-suave: #f1e3d2; --d-salvia: #e2e5d6;
   color-scheme: light;
 }
-@media (prefers-color-scheme: light) {
-  :root:not([data-tema="oscuro"]) body.mod-disc {
-    --bg: #f7f2ea; --bg-2: #efe7da; --card: #ffffff; --card-2: #f4ede2; --linea: #e2d7c6;
-    --texto: #3f4330; --texto-2: #6a6656; --texto-3: #7d776a;
-    --acento: #9c5535; --acento-2: #8a4a2e; --acento-txt: #ffffff;
-    --ok: #5e6440; --peligro: #a33d2a; --info: #577073;
-    --nav-bg: rgba(255, 253, 249, .94); --suave: rgba(63, 67, 48, .06); --borde: var(--linea);
-    --msg-err: #8a3a22; --msg-ok: #4a4e32; --offline-bg: #f1e3d2;
-    --d-hero: #3f4330; --d-hero-txt: #ffffff; --d-hero-2: #ddd6c3; --d-hero-linea: #555a42;
-    --d-arena: #c9a57e; --d-arena-suave: #f1e3d2; --d-salvia: #e2e5d6;
-    color-scheme: light;
-  }
-}
+body.mod-disc dialog { color-scheme: light; }
 /* lo que en Alabanza es dorado fijo, aquí toma el color del módulo */
 body.mod-disc .seg button.activo, body.mod-disc .chip.activo, body.mod-disc .reac.mia { border-color: var(--acento); background: color-mix(in srgb, var(--acento) 16%, transparent); }
 body.mod-disc .tag.warn { background: var(--d-arena-suave); color: var(--acento-2); }
@@ -1011,3 +989,4 @@ body.mod-disc .item .info small { display: block; }
 .d-notas textarea::placeholder { color: var(--d-hero-2); }
 .d-notas .btn-link { color: var(--d-hero-2); }
 .d-notas form { display: grid; gap: 8px; }
+html:has(body.mod-disc) { background: #f7f2ea; color-scheme: light; }

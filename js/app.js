@@ -53,7 +53,7 @@ function aplicarTema() {
   else document.documentElement.dataset.tema = t;
   const claro = t === 'claro' || (t === 'auto' && mqClaro.matches);
   const disc = st.modulo === 'discipulado';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', claro ? (disc ? '#f7f2ea' : '#f5f3ee') : (disc ? '#23251b' : '#000000'));
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', disc ? '#f7f2ea' : (claro ? '#f5f3ee' : '#000000'));
 }
 aplicarTema();
 mqClaro.addEventListener?.('change', aplicarTema);
