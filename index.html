@@ -39,7 +39,23 @@
   <script type="module" src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+      // Al volver a la app se revisa si hay versión nueva. Si la hay, sale un aviso para actualizar
+      // (no se recarga solo, para no borrar algo que la persona esté escribiendo).
+      var habiaVersion = !!navigator.serviceWorker.controller;
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+          document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); });
+        }).catch(function () {});
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!habiaVersion) { habiaVersion = true; return; }
+        if (document.getElementById('avisoVersion')) return;
+        var b = document.createElement('button');
+        b.id = 'avisoVersion'; b.className = 'aviso-version'; b.type = 'button';
+        b.textContent = '✨ Hay una versión nueva · Toca para actualizar';
+        b.onclick = function () { location.reload(); };
+        document.body.appendChild(b);
+      });
     }
   </script>
 </body>

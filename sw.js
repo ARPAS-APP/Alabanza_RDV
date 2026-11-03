@@ -3,7 +3,7 @@
 // - Imágenes y partituras de Supabase Storage: caché primero (no cambian), red si no están.
 // - Datos de Supabase (REST): no se tocan; la app guarda su propia copia (IndexedDB).
 // IMPORTANTE: este archivo va en la RAÍZ del repo (junto a index.html) para que funcionen las notificaciones.
-const CACHE = 'alabanza-v33';
+const CACHE = 'alabanza-v34';
 const ARCHIVOS = 'alabanza-archivos';
 const SHELL = [
   './', 'index.html', 'css/styles.css', 'js/app.js', 'js/acordes.js', 'js/cifrado.js', 'js/config.js', 'js/audio-cifrado.js', 'js/audio-ref.js', 'js/estirar-worker.js',
@@ -41,8 +41,13 @@ self.addEventListener('fetch', e => {
   const propio = url.origin === location.origin;
   const cdn = url.hostname === 'cdn.jsdelivr.net';
   if (!propio && !cdn) return;
+  // Archivos propios: siempre preguntar al servidor si hay versión nueva (sin usar la caché del navegador,
+  // que en GitHub Pages guarda los archivos hasta 10 minutos y hacía que los cambios tardaran en verse).
+  const pedir = !propio ? fetch(req)
+    : req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
+    : fetch(req, { cache: 'no-cache' });
   e.respondWith(
-    fetch(req)
+    pedir
       .then(res => {
         if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
         return res;
