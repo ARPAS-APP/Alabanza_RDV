@@ -34,6 +34,8 @@ Costo: **$0** (GitHub Pages + plan gratis de Supabase).
 
 8. `010_reemplazos_calendario.sql` ⏳ **ejecutar**: aviso a @admins al marcar No puedo (trigger `avisar_rechazo`) y tokens de calendario (`calendario_tokens`, `mi_token_calendario`). Además publicar la Edge Function `calendario` (Verify JWT desactivado).
 
+9. `011_chat_privado.sql` ⏳ **ejecutar**: mensajes privados 1 a 1 en el chat del día (`mensajes_evento.para_id`); los leen solo los dos y los admins.
+
 No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 
 ## Permisos
@@ -57,7 +59,7 @@ No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
    - **Generar mes:** crea automáticamente los días recurrentes.
    - **Planificación:** tabla del mes por rol, con conteo de participación.
    - **Equipo del día:** cantores (rol único **Voz**, con marca 👑 **Dirige** por día) e instrumentistas; cada uno marca ✅ Puedo / 🤔 Por confirmar / ❌ No puedo. El admin ve el resumen y envía recordatorios 🔔 (manuales o automáticos).
-   - **Chat del día:** conversación en tiempo real dentro de cada evento.
+   - **Chat del día:** conversación en tiempo real dentro de cada evento, con pestañas de mensajes privados 1 a 1 (＋ Privado) con el equipo del día.
    - **Publicar en el muro** y **compartir por WhatsApp.**
 4. **Modo en vivo:** un admin inicia desde el día y, al cambiar de canción, a todos les cambia la pantalla en el tono asignado. Cada uno ve arriba la nota general y la de su instrumento. Se puede pasar a modo "Libre".
 5. **Editor de acordes:** botonera con los acordes del tono y modo "Tocar acordes" (tocar palabra → tocar acorde), sin escribir corchetes.
