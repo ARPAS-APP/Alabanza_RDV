@@ -728,3 +728,22 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
   .cf-comp { padding: .1em .18em; }
   .cf-comp.multi.apretado .cf-ac { font-size: .82em; }
 }
+
+/* ---- audio de referencia ---- */
+.audio-ref { padding: 10px 12px; }
+.ar-cab { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 14px; }
+.ar-cab small { color: var(--texto-3); font-size: 12px; }
+.ar-fila { display: flex; align-items: center; gap: 10px; }
+.ar-play { flex: none; width: 44px; height: 44px; font-size: 18px; }
+.ar-barra { flex: 1; height: 26px; display: flex; align-items: center; cursor: pointer; position: relative; }
+.ar-barra::before { content: ''; position: absolute; left: 0; right: 0; height: 4px; border-radius: 4px; background: var(--linea); }
+.ar-prog { position: relative; height: 4px; border-radius: 4px; background: var(--acento); width: 0; }
+.ar-tiempo { flex: none; font-size: 12px; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.ar-ajustes { justify-content: space-between; flex-wrap: wrap; margin-top: 8px; }
+.ar-tono { font-size: 14px; color: var(--texto-2); }
+.ar-tono b { color: var(--texto); margin-left: 4px; }
+.ar-tono small { margin-left: 6px; color: var(--texto-3); }
+.ar-tempo { display: flex; align-items: center; gap: 6px; }
+.ar-bpm { background: none; border: 0; color: var(--texto); font: inherit; font-weight: 800; font-size: 15px; min-width: 70px; cursor: pointer; }
+.ar-ayuda { margin: 6px 0 0; font-size: 12px; }
+.spinner.sm { width: 16px; height: 16px; border-width: 2px; display: inline-block; margin: 0; vertical-align: middle; }

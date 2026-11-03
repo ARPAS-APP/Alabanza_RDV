@@ -5,6 +5,7 @@ import {
   transponerTono, renderLetra, primerAcorde, cifrado, esAcorde, acordesDelTono, aCorchetes, transponerAcorde,
 } from './acordes.js';
 import { generarCifrado, renderCifrado, erroresCifrado, AYUDA_CIFRADO, leerIreal } from './cifrado.js';
+import { crearReproductor, desbloquearAudio } from './audio-ref.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -689,6 +690,15 @@ Cuan grande es Él…">${esc(x.letra)}</textarea>
       <p class="ayuda" id="eaAyuda"></p>
       <label>Video de referencia (YouTube)</label>
       <input name="video_url" type="url" inputmode="url" value="${esc(x.video_url)}" placeholder="https://youtu.be/…">
+      <label>🎧 Audio de referencia (MP3)</label>
+      ${x.audio_url ? `<p class="ayuda" style="margin:0 0 6px">Esta canción ya tiene audio. Sube otro para reemplazarlo.
+        <label class="check" style="margin-top:4px"><input type="checkbox" name="quitar_audio"> Quitar el audio</label></p>` : ''}
+      <input name="audio" type="file" accept="audio/*,.mp3,.m4a,.wav">
+      <div class="fila">
+        <div><label>Tono del audio</label><select name="audio_tono">${opcionesTono(x.audio_tono || x.tono_original, TODOS_LOS_TONOS, 'Igual al original')}</select></div>
+        <div><label>BPM del audio</label><input name="audio_bpm" type="number" min="30" max="260" inputmode="numeric" value="${esc(x.audio_bpm || x.bpm || '')}"></div>
+      </div>
+      <p class="ayuda">Súbelo tal como suena en el disco (hasta 20 MB). Cada quien lo podrá escuchar en el tono de la canción y cambiarle el tempo.</p>
       <button class="btn prim blk" type="submit">${c ? 'Guardar cambios' : 'Crear canción'}</button>
     </form>`);
   const form = $('#fCan', body);
@@ -864,11 +874,35 @@ Cuan grande es Él…">${esc(x.letra)}</textarea>
         ...(st.faltaV6 ? {} : { ritmo: f.ritmo || null }),
       };
       if (datos.tono_original && !parseTono(datos.tono_original)) datos.tono_original = null;
+      // ---- audio de referencia ----
+      const archivo = form.audio.files?.[0];
+      const audioTono = parseTono(f.audio_tono) ? f.audio_tono : null;
+      const audioBpm = f.audio_bpm ? parseInt(f.audio_bpm, 10) : null;
+      let rutaVieja = null;
+      if (archivo) {
+        if (archivo.size > 20 * 1024 * 1024) return toast('El audio pesa más de 20 MB. Usa un MP3 más liviano.', true);
+        const ext = (archivo.name.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+        const ruta = `${st.uid}/${Date.now()}.${ext}`;
+        const { error: eUp } = await sb.storage.from('audios').upload(ruta, archivo, { contentType: archivo.type || 'audio/mpeg' });
+        if (eUp) {
+          if (/bucket|not found/i.test(eUp.message || '')) return toast(esAdmin() ? 'Ejecuta supabase/012_audio_referencia.sql en Supabase' : 'Los audios aún no están activados', true);
+          return fallo(eUp, 'Audio');
+        }
+        Object.assign(datos, { audio_url: sb.storage.from('audios').getPublicUrl(ruta).data.publicUrl, audio_ruta: ruta, audio_tono: audioTono, audio_bpm: audioBpm });
+        rutaVieja = x.audio_ruta || null;
+      } else if (x.audio_url) {
+        if (f.quitar_audio) { Object.assign(datos, { audio_url: null, audio_ruta: null, audio_tono: null, audio_bpm: null }); rutaVieja = x.audio_ruta || null; }
+        else Object.assign(datos, { audio_tono: audioTono, audio_bpm: audioBpm });
+      }
       const q = c
         ? sb.from('canciones').update(datos).eq('id', c.id).select('id').single()
         : sb.from('canciones').insert({ ...datos, creado_por: st.uid }).select('id').single();
       const { data, error } = await q;
-      if (error) return fallo(error, 'Canción');
+      if (error) {
+        if (/audio_/.test(error.message || '')) return toast(esAdmin() ? 'Ejecuta supabase/012_audio_referencia.sql en Supabase' : 'Los audios aún no están activados', true);
+        return fallo(error, 'Canción');
+      }
+      if (rutaVieja) sb.storage.from('audios').remove([rutaVieja]);
       cerrarModal(); toast(c ? 'Canción actualizada' : 'Canción creada');
       if (c) rutear(); else location.hash = '#/cancion/' + data.id;
     });
@@ -916,6 +950,55 @@ async function vistaCancion(ctx) {
   let editandoNota = false;
 
   const tonoActual = () => (original ? transponerTono(original, semis) : null);
+
+  // ---- audio de referencia: suena en el tono elegido arriba y con el tempo que cada quien quiera ----
+  const tonoAudio = parseTono(c.audio_tono) ? c.audio_tono : original;
+  const bpmAudio = c.audio_bpm || c.bpm || null;
+  let bpmMeta = bpmAudio, tempoLibre = 1, rep = null, rafAudio = 0;
+  const semisAudio = () => (tonoAudio && tonoActual() ? distancia(tonoAudio, tonoActual()) : semis);
+  const tempoAudio = () => (bpmAudio ? bpmMeta / bpmAudio : tempoLibre);
+  const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  const progresoAudio = () => {
+    const box = $('#audioRef');
+    if (!box || !rep) return;
+    const e = rep.estado(), real = x => x / (e.tempo || 1);
+    const prog = box.querySelector('.ar-prog'), tiempo = box.querySelector('.ar-tiempo');
+    if (prog) prog.style.width = (e.dur ? (e.pos / e.dur) * 100 : 0) + '%';
+    if (tiempo) tiempo.textContent = `${mmss(real(e.pos))} / ${mmss(real(e.dur))}`;
+  };
+  const pintarAudio = () => {
+    const box = $('#audioRef');
+    if (!box) return;
+    const e = rep?.estado() || {};
+    const s = semisAudio(), sonando = tonoActual() || '';
+    const tempoTxt = bpmAudio ? `${bpmMeta} BPM` : `${Math.round(tempoLibre * 100)} %`;
+    const cambiado = bpmAudio ? bpmMeta !== bpmAudio : tempoLibre !== 1;
+    box.innerHTML = `
+      <div class="ar-cab"><b>🎧 Audio de referencia</b>${e.procesando ? '<small>Preparando…</small>' : e.cargando ? '<small>Cargando…</small>' : ''}</div>
+      <div class="ar-fila">
+        <button class="btn-ico ar-play" data-acc="ar-play" aria-label="${e.tocando ? 'Pausar' : 'Reproducir'}">${e.cargando ? '<span class="spinner sm"></span>' : e.tocando ? '⏸' : '▶'}</button>
+        <div class="ar-barra" data-acc="ar-ir" role="slider" aria-label="Posición"><div class="ar-prog"></div></div>
+        <span class="ar-tiempo">0:00 / 0:00</span>
+      </div>
+      <div class="ar-fila ar-ajustes">
+        <span class="ar-tono">Tono <b>${esc(tonoTxt(sonando) || (s > 0 ? '+' + s : s))}</b>${s ? `<small>${s > 0 ? '+' : ''}${s} st</small>` : '<small>original</small>'}</span>
+        <span class="ar-tempo">
+          <button class="btn-ico sm" data-acc="ar-tempo" data-d="-1" aria-label="Más lento">−</button>
+          <button class="ar-bpm" data-acc="ar-tempo-escribir" title="Escribir tempo">${tempoTxt}</button>
+          <button class="btn-ico sm" data-acc="ar-tempo" data-d="1" aria-label="Más rápido">+</button>
+          ${cambiado ? `<button class="btn sm" data-acc="ar-tempo-orig">Original${bpmAudio ? ' ' + bpmAudio : ''}</button>` : ''}
+        </span>
+      </div>
+      ${e.error ? `<p class="ayuda" style="color:var(--peligro);margin:6px 0 0">${esc(e.error)}</p>` : '<p class="ayuda ar-ayuda">El tono sigue al que elijas arriba.</p>'}`;
+    progresoAudio();
+    rep?.ajustar({ semis: s, tempo: tempoAudio() });
+  };
+  const animarAudio = () => {
+    cancelAnimationFrame(rafAudio);
+    const paso = () => { progresoAudio(); if (rep?.estado().tocando) rafAudio = requestAnimationFrame(paso); };
+    paso();
+  };
+  st.limpiar.push(() => { cancelAnimationFrame(rafAudio); rep?.parar(); });
   const puedeTonos = () => esAdmin() || st.perfil.instrumento === 'voz' || tonos.some(t => t.cantante_id === st.uid);
 
   const pintar = () => {
@@ -966,6 +1049,7 @@ async function vistaCancion(ctx) {
         })() : ''}
       </div>
       ${htmlMetro(c)}
+      ${c.audio_url ? '<div class="card audio-ref" id="audioRef"></div>' : ''}
       ${original ? `
       ${setId && itemSet && esAdmin() && actual && actual !== (itemSet.tono || original) ? `<div class="card guardar-tono">
         <span>Tono de este día: <b>${esc(tonoTxt(itemSet.tono || original))}</b> → <b>${esc(tonoTxt(actual))}</b></span>
@@ -1035,6 +1119,7 @@ async function vistaCancion(ctx) {
       document.body.appendChild(nav);
       st.limpiar.push(() => nav.remove());
     }
+    pintarAudio();
   };
   metroPreparar(c);
   st.limpiar.push(metroParar);
@@ -1092,6 +1177,29 @@ async function vistaCancion(ctx) {
     else if (acc === 'vista') { ajustes.vista = el.dataset.v; guardarAjustes(); pintar(); }
     else if (acc === 'editar-cifrado') modalCifrado(c, () => pintar());
     else if (acc.startsWith('met-')) metroAccion(acc, c, el);
+    else if (acc === 'ar-play') {
+      desbloquearAudio();
+      if (!rep) {
+        rep = crearReproductor(() => { pintarAudio(); animarAudio(); });
+        rep.ajustar({ semis: semisAudio(), tempo: tempoAudio() });
+        await rep.cargar(c.audio_url);
+        if (rep.estado().listo) await rep.alternar();
+      } else await rep.alternar();
+    }
+    else if (acc === 'ar-ir' && rep) { const r = el.getBoundingClientRect(); rep.ir((e.clientX - r.left) / r.width); }
+    else if (acc === 'ar-tempo') {
+      if (bpmAudio) bpmMeta = Math.min(Math.round(bpmAudio * 1.5), Math.max(Math.round(bpmAudio * 0.5), bpmMeta + +el.dataset.d));
+      else tempoLibre = Math.min(1.5, Math.max(0.5, Math.round((tempoLibre + +el.dataset.d * 0.05) * 100) / 100));
+      pintarAudio();
+    }
+    else if (acc === 'ar-tempo-orig') { bpmMeta = bpmAudio; tempoLibre = 1; pintarAudio(); }
+    else if (acc === 'ar-tempo-escribir') {
+      const v = parseInt(prompt(bpmAudio ? `Tempo en BPM (el audio está a ${bpmAudio}):` : 'Velocidad en % (100 = original):', bpmAudio ? bpmMeta : Math.round(tempoLibre * 100)), 10);
+      if (!v) return;
+      if (bpmAudio) bpmMeta = Math.min(Math.round(bpmAudio * 1.5), Math.max(Math.round(bpmAudio * 0.5), v));
+      else tempoLibre = Math.min(1.5, Math.max(0.5, v / 100));
+      pintarAudio();
+    }
     else if (acc === 'tab') { tabNota = el.dataset.tab; editandoNota = false; pintar(); }
     else if (acc === 'editar-nota') { editandoNota = true; pintar(); $('#txtNota')?.focus(); }
     else if (acc === 'cancelar-nota') { editandoNota = false; pintar(); }

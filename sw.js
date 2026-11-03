@@ -3,10 +3,10 @@
 // - Imágenes y partituras de Supabase Storage: caché primero (no cambian), red si no están.
 // - Datos de Supabase (REST): no se tocan; la app guarda su propia copia (IndexedDB).
 // IMPORTANTE: este archivo va en la RAÍZ del repo (junto a index.html) para que funcionen las notificaciones.
-const CACHE = 'alabanza-v28';
+const CACHE = 'alabanza-v29';
 const ARCHIVOS = 'alabanza-archivos';
 const SHELL = [
-  './', 'index.html', 'css/styles.css', 'js/app.js', 'js/acordes.js', 'js/cifrado.js', 'js/config.js', 'js/audio-cifrado.js',
+  './', 'index.html', 'css/styles.css', 'js/app.js', 'js/acordes.js', 'js/cifrado.js', 'js/config.js', 'js/audio-cifrado.js', 'js/audio-ref.js', 'js/estirar-worker.js',
   'programa.html', 'js/programa.js', 'manifest.webmanifest', 'icons/logo.png', 'icons/icon-192.png',
 ];
 

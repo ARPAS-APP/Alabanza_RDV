@@ -35,6 +35,7 @@ Costo: **$0** (GitHub Pages + plan gratis de Supabase).
 8. `010_reemplazos_calendario.sql` ⏳ **ejecutar**: aviso a @admins al marcar No puedo (trigger `avisar_rechazo`) y tokens de calendario (`calendario_tokens`, `mi_token_calendario`). Además publicar la Edge Function `calendario` (Verify JWT desactivado).
 
 9. `011_chat_privado.sql` ⏳ **ejecutar**: mensajes privados 1 a 1 en el chat del día (`mensajes_evento.para_id`); los leen solo los dos y los admins.
+10. `012_audio_referencia.sql` ⏳ **ejecutar**: audio de referencia por canción (columnas `audio_*` en canciones y bucket `audios`, 20 MB).
 
 No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 
@@ -89,4 +90,4 @@ Voz, Piano / Teclado, Guitarra acústica, Guitarra eléctrica, Bajo, Batería, P
 - Historial de canciones y metrónomo.
 
 ## Ideas no implementadas aún
-- Adjuntar audio de referencia a las canciones.
+- (El audio de referencia ya está: reproductor con cambio de tono y tempo en BPM.)

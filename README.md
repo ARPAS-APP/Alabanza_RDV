@@ -16,6 +16,7 @@ App web instalable (PWA) para el equipo de alabanza: muro, canciones con acordes
    7. `supabase/009_confirmaciones_recordatorios.sql`
    8. `supabase/010_reemplazos_calendario.sql`
    9. `supabase/011_chat_privado.sql`
+   10. `supabase/012_audio_referencia.sql`
 
    No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 2. **GitHub Pages:** Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
@@ -48,6 +49,9 @@ Pestaña 🙋 **Mis días**: cada integrante ve sus próximos días con su asign
 ## Reemplazos y calendario
 - Cuando alguien marca ❌ No puedo, se escribe en el chat del día mencionando a @admins (les llega push). En el día, el admin toca 🔄 junto a esa persona y ve sugerencias: mismo instrumento, disponible y con menos participación en el mes.
 - En Mis días → 📅: link personal para suscribirse desde el calendario del celular (iPhone, Google, Outlook). Requiere publicar la Edge Function `calendario` (código en `supabase/functions/calendario/index.ts`) con **Verify JWT desactivado**.
+
+## Audio de referencia
+En ✏️ Editar canción → **🎧 Audio de referencia**: el admin sube el MP3 tal como suena en el disco, con su tono y BPM. En la canción aparece un reproductor que suena **en el tono elegido arriba** (cambia solo al elegir otro tono o el de un cantante) y con el **tempo en BPM** que cada quien quiera, sin que cambie el tono. Todo se procesa en el celular (`js/audio-ref.js` y `js/estirar-worker.js`). Requiere `supabase/012_audio_referencia.sql` (bucket `audios`, 20 MB).
 
 ## Chat privado
 En el chat del día, **＋ Privado** abre una conversación 1 a 1 con alguien del equipo de ese día. La leen solo esas dos personas y los admins (los admins la ven en modo lectura). Quien recibe el mensaje recibe aviso y push. Requiere `supabase/011_chat_privado.sql`.
