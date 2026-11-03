@@ -6,6 +6,7 @@ import {
 } from './acordes.js';
 import { generarCifrado, renderCifrado, erroresCifrado, AYUDA_CIFRADO, leerIreal } from './cifrado.js';
 import { crearReproductor, desbloquearAudio } from './audio-ref.js';
+import { crearDiscipulado } from './discipulado.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -31,6 +32,10 @@ const st = {
   canalGlobal: null,    // canal de tiempo real de mis menciones
   historial: null,      // cancion_id -> { ultima_vez, veces_90d, veces_total }
   historialT: 0,
+  hayModulos: false,    // true si ya se ejecutó 015_modulos_discipulado.sql
+  mods: { alabanza: true }, // mis accesos: { alabanza: true, discipulado: 'discipulo' | 'mentor' | 'pastor' }
+  modsDe: new Map(),    // perfil_id -> { alabanza, discipulado }
+  modulo: 'alabanza',   // módulo que se está viendo
 };
 
 const LS = 'alabanza.ajustes';
@@ -47,7 +52,8 @@ function aplicarTema() {
   if (t === 'auto') delete document.documentElement.dataset.tema;
   else document.documentElement.dataset.tema = t;
   const claro = t === 'claro' || (t === 'auto' && mqClaro.matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', claro ? '#f5f3ee' : '#000000');
+  const disc = st.modulo === 'discipulado';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', claro ? (disc ? '#f7f2ea' : '#f5f3ee') : (disc ? '#23251b' : '#000000'));
 }
 aplicarTema();
 mqClaro.addEventListener?.('change', aplicarTema);
@@ -56,11 +62,13 @@ const $ = (s, el = document) => el.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const esAdmin = () => st.perfil?.rol === 'admin';
+const tieneAlabanza = () => !st.hayModulos || !!st.mods.alabanza;
+const discRol = () => (st.hayModulos && st.mods.discipulado) || null;
 const nombreDe = id => st.perfiles.get(id)?.nombre || 'Alguien';
 const iniciales = n => (n || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
 const normalizar = s => String(s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 const tonoTxt = t => (t ? cifrado(t, ajustes.latino) : '—');
-const aprobados = () => [...st.perfiles.values()].filter(p => p.estado === 'aprobado').sort((a, b) => a.nombre.localeCompare(b.nombre));
+const aprobados = () => [...st.perfiles.values()].filter(p => p.estado === 'aprobado' && (!st.hayModulos || st.modsDe.get(p.id)?.alabanza)).sort((a, b) => a.nombre.localeCompare(b.nombre));
 const cantantes = () => {
   return aprobados().sort((a, b) => ((b.instrumento === 'voz') - (a.instrumento === 'voz')) || a.nombre.localeCompare(b.nombre));
 };
@@ -190,8 +198,11 @@ function encabezado(titulo, { sub = '', atras = null, derecha = '' } = {}) {
   const izq = atras
     ? `<button class="atras" data-atras="${esc(atras)}" aria-label="Volver">‹</button>`
     : `<img src="icons/logo.png" alt="">`;
-  return `<header class="top">${izq}<h1>${esc(titulo)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</h1>${derecha}
-    <button type="button" class="campana" data-men aria-label="Menciones">🔔<b class="men-badge"${st.menNoLeidas ? '' : ' hidden'}>${st.menNoLeidas > 9 ? '9+' : st.menNoLeidas}</b></button>
+  const disc = st.modulo === 'discipulado';
+  const cambio = tieneAlabanza() && discRol()
+    ? (disc ? `<a class="mod-chip" href="#/muro" title="Ir a Alabanza">🎵 Alabanza</a>` : `<a class="mod-chip" href="#/d/inicio" title="Ir a Discipulado">🌱 Discipulado</a>`) : '';
+  return `<header class="top">${izq}<h1>${esc(titulo)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</h1>${derecha}${cambio}
+    ${tieneAlabanza() ? `<button type="button" class="campana" data-men aria-label="Menciones">🔔<b class="men-badge"${st.menNoLeidas ? '' : ' hidden'}>${st.menNoLeidas > 9 ? '9+' : st.menNoLeidas}</b></button>` : ''}
     <a class="avatar" href="#/perfil" title="Mi perfil">${esc(iniciales(st.perfil?.nombre))}</a></header>`;
 }
 
@@ -222,8 +233,10 @@ async function arrancar(session) {
   if (!session) {
     st.perfil = null;
     if (st.canalGlobal) { sb.removeChannel(st.canalGlobal); st.canalGlobal = null; }
-    $('#nav').hidden = true;
-    return vistaAuth();
+    $('#nav').hidden = true; $('#navD').hidden = true;
+    disc.olvidar(); document.body.classList.remove('mod-disc');
+    const reg = /^#\/registro/.test(location.hash);
+    return vistaAuth(reg ? 'registro' : 'login', null, reg ? new URLSearchParams(location.hash.split('?')[1] || '').get('m') : null);
   }
   let { data: perfil, error } = await conCache('perfil', sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle());
   if (!perfil && !error) {
@@ -232,13 +245,31 @@ async function arrancar(session) {
   }
   if (error) { app.innerHTML = `<div class="auth"><div class="msg err">No se pudo cargar tu perfil: ${esc(error.message)}</div><button class="btn blk" onclick="location.reload()">Reintentar</button></div>`; return; }
   st.perfil = perfil;
-  if (!perfil || perfil.estado !== 'aprobado') { $('#nav').hidden = true; return vistaPendiente(); }
-  await Promise.all([cargarPerfiles(), cargarTipos()]);
-  iniciarGlobal();
-  actualizarBadgeMis();
-  $('#nav').hidden = false;
-  if (!location.hash || location.hash === '#' || location.hash === '#/') location.replace('#/muro');
+  if (!perfil || perfil.estado !== 'aprobado') { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(); }
+  await cargarModulos();
+  if (!tieneAlabanza() && !discRol()) { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(true); }
+  if (tieneAlabanza()) {
+    await Promise.all([cargarPerfiles(), cargarTipos()]);
+    iniciarGlobal();
+    actualizarBadgeMis();
+  } else await cargarPerfiles();
+  const inicio = discRol() && (!tieneAlabanza() || ajustes.modulo === 'discipulado') ? '#/d/inicio' : '#/muro';
+  if (!location.hash || location.hash === '#' || location.hash === '#/' || /^#\/registro/.test(location.hash)) location.replace(inicio);
   else rutear();
+}
+
+/** Accesos por módulo. Si aún no se ejecutó 015_modulos_discipulado.sql, todo sigue como antes (solo Alabanza). */
+async function cargarModulos() {
+  const { data, error } = await conCache('modulos', sb.from('modulos_acceso').select('perfil_id, modulo, rol'));
+  if (error) { st.hayModulos = false; st.mods = { alabanza: true }; st.modsDe = new Map(); return; }
+  st.hayModulos = true;
+  st.modsDe = new Map();
+  for (const m of data || []) {
+    const o = st.modsDe.get(m.perfil_id) || {};
+    o[m.modulo] = m.modulo === 'discipulado' ? m.rol : true;
+    st.modsDe.set(m.perfil_id, o);
+  }
+  st.mods = st.modsDe.get(st.uid) || {};
 }
 
 async function cargarPerfiles() {
@@ -248,6 +279,7 @@ async function cargarPerfiles() {
   if (st.perfiles.has(st.uid)) st.perfil = st.perfiles.get(st.uid);
   const pend = data.filter(p => p.estado === 'pendiente').length;
   const b = $('#badgePend');
+  if (!b) return;
   b.hidden = !(esAdmin() && pend);
   b.textContent = pend;
 }
@@ -255,21 +287,25 @@ async function cargarPerfiles() {
 // =====================================================================
 // Login / registro
 // =====================================================================
-function vistaAuth(modo = 'login', aviso = null) {
+function vistaAuth(modo = 'login', aviso = null, pre = null) {
   const titulos = { login: 'Entrar', registro: 'Crear cuenta', olvido: 'Recuperar contraseña' };
   app.innerHTML = `
   <div class="auth">
     <img class="logo" src="icons/logo.png" alt="Roca de Vida Panamá">
-    <h1>${esc(APP_NOMBRE)}</h1>
-    <p class="lema">Equipo de alabanza</p>
+    <h1>${esc(pre === 'discipulado' ? 'Roca de Vida · Discipulado' : APP_NOMBRE)}</h1>
+    <p class="lema">Alabanza · Discipulado</p>
     ${modo !== 'olvido' ? `<div class="tabs-auth">
       <button type="button" data-modo="login" class="${modo === 'login' ? 'activo' : ''}">Entrar</button>
       <button type="button" data-modo="registro" class="${modo === 'registro' ? 'activo' : ''}">Crear cuenta</button>
     </div>` : `<h2 style="margin:0 0 4px;font-size:18px">${titulos.olvido}</h2>`}
     <form id="fAuth" autocomplete="on">
       ${modo === 'registro' ? `
-        <label>Nombre</label><input name="nombre" required maxlength="60" autocomplete="name" placeholder="Cómo te conoce el equipo">
-        <label>¿Qué haces en el equipo?</label><select name="instrumento" required><option value="">Elige…</option>${opcionesInstrumento('')}</select>` : ''}
+        <label>Nombre</label><input name="nombre" required maxlength="60" autocomplete="name" placeholder="Cómo te conoce la iglesia">
+        <fieldset class="mods-reg"><legend>¿A qué quieres entrar?</legend>
+          <label class="check"><input type="checkbox" name="mod" value="alabanza" ${pre !== 'discipulado' ? 'checked' : ''}> 🎵 Alabanza</label>
+          <label class="check"><input type="checkbox" name="mod" value="discipulado" ${pre === 'discipulado' ? 'checked' : ''}> 🌱 Discipulado</label>
+        </fieldset>
+        <div id="campoInstr" ${pre === 'discipulado' ? 'hidden' : ''}><label>¿Qué haces en el equipo de alabanza?</label><select name="instrumento"><option value="">Elige…</option>${opcionesInstrumento('')}</select></div>` : ''}
       <label>Correo</label><input name="email" type="email" required autocomplete="email" inputmode="email">
       ${modo !== 'olvido' ? `<label>Contraseña</label><input name="clave" type="password" required minlength="6" autocomplete="${modo === 'login' ? 'current-password' : 'new-password'}">` : ''}
       <button class="btn prim blk" type="submit">${titulos[modo]}</button>
@@ -278,10 +314,14 @@ function vistaAuth(modo = 'login', aviso = null) {
     ${modo === 'login' ? `<button class="link" data-modo="olvido">¿Olvidaste tu contraseña?</button>` : ''}
     ${modo === 'olvido' ? `<button class="link" data-modo="login">‹ Volver a entrar</button>` : ''}
   </div>`;
-  app.onclick = e => { const b = e.target.closest('[data-modo]'); if (b) vistaAuth(b.dataset.modo); };
+  app.onclick = e => { const b = e.target.closest('[data-modo]'); if (b) vistaAuth(b.dataset.modo, null, pre); };
+  app.onchange = e => {
+    if (e.target.name === 'mod') $('#campoInstr').hidden = !$('#fAuth').querySelector('input[name=mod][value=alabanza]').checked;
+  };
   $('#fAuth').onsubmit = async e => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
+    const solicita = new FormData(e.target).getAll('mod');
     const btn = e.target.querySelector('button[type=submit]');
     const msg = (txt, err = true) => ($('#authMsg').innerHTML = `<div class="msg ${err ? 'err' : 'ok'}">${esc(txt)}</div>`);
     btn.disabled = true;
@@ -291,13 +331,15 @@ function vistaAuth(modo = 'login', aviso = null) {
         if (error) msg(/invalid login/i.test(error.message) ? 'Correo o contraseña incorrectos.'
           : /not confirmed/i.test(error.message) ? 'Primero confirma tu correo (revisa tu bandeja y spam).' : error.message);
       } else if (modo === 'registro') {
+        if (!solicita.length) { msg('Elige al menos un ministerio.'); return; }
+        if (solicita.includes('alabanza') && !f.instrumento) { msg('Elige qué haces en el equipo de alabanza.'); return; }
         const { data, error } = await sb.auth.signUp({
           email: f.email.trim(), password: f.clave,
-          options: { data: { nombre: f.nombre.trim(), instrumento: f.instrumento }, emailRedirectTo: baseUrl() },
+          options: { data: { nombre: f.nombre.trim(), instrumento: solicita.includes('alabanza') ? f.instrumento : '', solicita }, emailRedirectTo: baseUrl() },
         });
         if (error) msg(/already registered/i.test(error.message) ? 'Ese correo ya tiene cuenta. Usa "Entrar".'
           : /rate limit/i.test(error.message) ? 'Hay muchos registros seguidos. Espera unos minutos e inténtalo de nuevo.' : error.message);
-        else if (!data.session) vistaAuth('login', { txt: 'Te enviamos un correo para confirmar tu cuenta. Después entra aquí; un administrador debe aprobarte.' });
+        else if (!data.session) vistaAuth('login', { txt: 'Te enviamos un correo para confirmar tu cuenta. Después entra aquí; un administrador debe aprobarte.' }, pre);
       } else {
         const { error } = await sb.auth.resetPasswordForEmail(f.email.trim(), { redirectTo: baseUrl() });
         if (error) msg(/rate limit/i.test(error.message) ? 'Se enviaron muchos correos seguidos. Espera unos minutos e inténtalo de nuevo.' : error.message); else msg('Si el correo está registrado, te llegará un enlace para cambiar la contraseña.', false);
@@ -307,7 +349,7 @@ function vistaAuth(modo = 'login', aviso = null) {
   };
 }
 
-function vistaPendiente() {
+function vistaPendiente(sinModulo = false) {
   const bloqueado = st.perfil?.estado === 'bloqueado';
   app.innerHTML = `
   <div class="auth" style="text-align:center">
@@ -315,7 +357,8 @@ function vistaPendiente() {
     <h1>${bloqueado ? 'Acceso desactivado' : '¡Ya casi!'}</h1>
     <p class="lema">${bloqueado
       ? 'Tu cuenta fue desactivada. Habla con un administrador del equipo.'
-      : `Hola ${esc(st.perfil?.nombre || '')}, tu cuenta está <b>pendiente de aprobación</b>. Avísale a un administrador del equipo para que te apruebe.`}</p>
+      : sinModulo ? `Hola ${esc(st.perfil?.nombre || '')}, tu cuenta está aprobada pero todavía <b>no tienes acceso a ningún ministerio</b>. Avísale a quien te invitó.`
+      : `Hola ${esc(st.perfil?.nombre || '')}, tu cuenta está <b>pendiente de aprobación</b>. Avísale a quien te invitó para que te apruebe.`}</p>
     <button class="btn prim blk" id="bRev">Ya me aprobaron</button>
     <button class="btn blk" id="bSalir">Cerrar sesión</button>
   </div>`;
@@ -351,6 +394,7 @@ const RUTAS = {
   plan: vistaPlan,
   equipo: vistaEquipo,
   perfil: vistaPerfil,
+  d: ctx => disc.vista(ctx),
 };
 const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', perfil: 'equipo' };
 
@@ -359,14 +403,25 @@ window.addEventListener('hashchange', () => st.perfil?.estado === 'aprobado' && 
 function rutear() {
   const [ruta, qs = ''] = location.hash.replace(/^#\/?/, '').split('?');
   const [nombre, id] = ruta.split('/');
+  // Cada ruta pertenece a un módulo; "perfil" se queda en el módulo actual
+  const modulo = nombre === 'perfil' ? (st.modulo === 'discipulado' && discRol() ? 'discipulado' : (tieneAlabanza() ? 'alabanza' : 'discipulado'))
+    : nombre === 'd' ? 'discipulado' : 'alabanza';
+  if (modulo === 'discipulado' && !discRol()) { location.replace('#/muro'); return; }
+  if (modulo === 'alabanza' && !tieneAlabanza()) { location.replace('#/d/inicio'); return; }
+  if (st.modulo !== modulo) { st.modulo = modulo; aplicarTema(); }
+  if (ajustes.modulo !== modulo && nombre !== 'perfil') { ajustes.modulo = modulo; guardarAjustes(); }
+  document.body.classList.toggle('mod-disc', modulo === 'discipulado');
+  $('#nav').hidden = modulo !== 'alabanza';
+  $('#navD').hidden = modulo !== 'discipulado';
   const fn = RUTAS[nombre] || vistaMuro;
   st.limpiar.forEach(f => f()); st.limpiar = [];
   const token = ++st.vista;
-  const tab = TAB_DE[nombre] || (RUTAS[nombre] ? nombre : 'muro');
-  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('activo', a.dataset.tab === tab));
-  app.onclick = null; app.oninput = null; app.onchange = null;
+  const partes = ruta.split('/').slice(1);
+  const tab = nombre === 'd' ? disc.tabDe(partes[0]) : TAB_DE[nombre] || (RUTAS[nombre] ? nombre : 'muro');
+  document.querySelectorAll(modulo === 'alabanza' ? '#nav a' : '#navD a').forEach(a => a.classList.toggle('activo', nombre !== 'perfil' && a.dataset.tab === tab));
+  app.onclick = null; app.oninput = null; app.onchange = null; app.onsubmit = null;
   window.scrollTo(0, 0);
-  fn({ id, q: new URLSearchParams(qs), vigente: () => token === st.vista });
+  fn({ id, partes, q: new URLSearchParams(qs), vigente: () => token === st.vista });
 }
 
 function cargando(titulo, opts) {
@@ -2912,13 +2967,13 @@ async function modalCalendario() {
     const https = `${SUPABASE_URL}/functions/v1/calendario?t=${token}`;
     const webcal = https.replace(/^https:/, 'webcal:');
     body.innerHTML = `
-      <p class="ayuda" style="margin-top:0">Tus días de servicio y ensayos aparecen en el calendario del celular y se actualizan solos (el calendario revisa cada pocas horas). Los que faltan confirmar salen con ⏳.</p>
+      <p class="ayuda" style="margin-top:0">${tieneAlabanza() && discRol() ? 'Tus días de servicio, ensayos y mentorías aparecen' : discRol() && !tieneAlabanza() ? 'Tus mentorías aparecen' : 'Tus días de servicio y ensayos aparecen'} en el calendario del celular y se actualizan solos (el calendario revisa cada pocas horas). Los que faltan confirmar salen con ⏳.</p>
       <div class="lista">
         <a class="btn blk prim" href="${esc(webcal)}">📱 iPhone, iPad o Mac</a>
         <a class="btn blk" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">Google Calendar (Android)</a>
         <button class="btn blk" data-cal="copiar">📋 Copiar link (Outlook u otros)</button>
       </div>
-      <p class="ayuda">En Android: abre el botón de Google en el navegador con tu cuenta de Google; después aparece en la app Calendario. Si no lo ves, activa el calendario «Alabanza RDV» en la lista de calendarios.</p>
+      <p class="ayuda">En Android: abre el botón de Google en el navegador con tu cuenta de Google; después aparece en la app Calendario. Si no lo ves, activa el calendario «Mis días» en la lista de calendarios.</p>
       <p class="ayuda">Este link es personal: no lo compartas. Si se filtró, <button class="btn sm" data-cal="nuevo">🔄 Cambiar link</button> (el anterior deja de funcionar).</p>`;
     body.onclick = async e => {
       const b = e.target.closest('[data-cal]');
@@ -3415,7 +3470,7 @@ async function vistaEquipo(ctx) {
       <div class="lista">${pend.map(p => `
         <div class="item" style="cursor:default">
           <span class="avatar sm">${esc(iniciales(p.nombre))}</span>
-          <div class="info"><b>${esc(p.nombre)}</b><small>${esc(INSTRUMENTOS[p.instrumento] || '—')} · ${esc(p.email || '')}</small></div>
+          <div class="info"><b>${esc(p.nombre)}</b><small>${p.solicita?.length ? esc('Pidió: ' + p.solicita.map(m => m === 'alabanza' ? 'Alabanza' : 'Discipulado').join(' y ')) + ' · ' : ''}${esc(INSTRUMENTOS[p.instrumento] || '—')} · ${esc(p.email || '')}</small></div>
           <div class="miembro-acc">
             <button class="btn sm prim" data-acc="aprobar" data-id="${p.id}">Aprobar</button>
             <button class="btn sm" data-acc="bloquear" data-id="${p.id}">✕</button>
@@ -3439,7 +3494,11 @@ async function vistaEquipo(ctx) {
     const el = e.target.closest('[data-acc]');
     if (!el) return;
     const p = st.perfiles.get(el.dataset.id);
-    if (el.dataset.acc === 'aprobar') actualizar(p.id, { estado: 'aprobado' }, `${p.nombre} aprobado`);
+    if (el.dataset.acc === 'aprobar') {
+      // Con módulos: se elige a qué entra (Alabanza, Discipulado y con qué rol) antes de aprobar
+      if (st.hayModulos && p.estado === 'pendiente') modalAccesos(p, () => rutear());
+      else actualizar(p.id, { estado: 'aprobado' }, `${p.nombre} aprobado`);
+    }
     else if (el.dataset.acc === 'bloquear') { if (confirm(`¿Rechazar/desactivar a ${p.nombre}?`)) actualizar(p.id, { estado: 'bloqueado' }, 'Desactivado'); }
     else if (el.dataset.acc === 'menu') {
       const body = abrirModal(p.nombre, `
@@ -3447,14 +3506,66 @@ async function vistaEquipo(ctx) {
         <label>Instrumento / rol en el equipo</label><select id="mInstr">${opcionesInstrumento(p.instrumento)}</select>
         <button class="btn blk" id="mGuardar">Guardar instrumento</button>
         <button class="btn blk" id="mTonos">🎤 Ver / editar sus tonos</button>
+        ${st.hayModulos ? '<button class="btn blk" id="mAccesos">🔑 Accesos a ministerios</button>' : ''}
         <button class="btn blk" id="mAdmin">${p.rol === 'admin' ? 'Quitar administrador' : '⭐ Hacer administrador'}</button>
         <button class="btn peligro blk" id="mBloq">Desactivar acceso</button>`);
       $('#mTonos', body).onclick = () => modalTonosDe(p.id);
+      $('#mAccesos', body) && ($('#mAccesos', body).onclick = () => modalAccesos(p, () => rutear()));
       $('#mGuardar', body).onclick = () => actualizar(p.id, { instrumento: $('#mInstr', body).value }, 'Guardado');
       $('#mAdmin', body).onclick = () => actualizar(p.id, { rol: p.rol === 'admin' ? 'miembro' : 'admin' }, 'Rol actualizado');
       $('#mBloq', body).onclick = () => confirm(`¿Desactivar a ${p.nombre}?`) && actualizar(p.id, { estado: 'bloqueado' }, 'Desactivado');
     }
   };
+}
+
+// ---------- accesos por ministerio (Alabanza / Discipulado) ----------
+const ROL_D = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Mentor (administra)' };
+function modalAccesos(p, alGuardar = () => {}) {
+  if (!p) return;
+  const admin = esAdmin();
+  const actual = st.modsDe.get(p.id) || {};
+  const pendiente = p.estado !== 'aprobado' || !st.modsDe.get(p.id);
+  const pidio = p.solicita || [];
+  const ala0 = pendiente ? (pidio.includes('alabanza') || !pidio.length) : !!actual.alabanza;
+  const disc0 = pendiente ? (pidio.includes('discipulado') ? 'discipulo' : '') : (actual.discipulado || '');
+  const body = abrirModal(p.nombre, '<div class="spinner"></div>');
+  sb.from('disc_discipulos').select('mentor_id').eq('discipulo_id', p.id).maybeSingle().then(({ data }) => {
+    const mentores = [...st.perfiles.values()]
+      .filter(x => x.id !== p.id && x.estado === 'aprobado' && ['mentor', 'pastor'].includes(st.modsDe.get(x.id)?.discipulado))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    body.innerHTML = `<div class="modal-h"><h2>${esc(p.nombre)}</h2><button type="button" data-cerrar aria-label="Cerrar">×</button></div>
+      <p class="ayuda" style="margin-top:0">${esc(p.email || '')}${pidio.length ? ' · Pidió: ' + esc(pidio.map(m => m === 'alabanza' ? 'Alabanza' : 'Discipulado').join(' y ')) : ''}</p>
+      ${pendiente ? '<div class="msg ok" style="margin-top:4px">Pendiente de aprobación. Conversa con la persona y elige a qué entra.</div>' : ''}
+      <label class="check" style="margin-top:16px"><input type="checkbox" id="aAla" ${ala0 ? 'checked' : ''} ${admin ? '' : 'disabled'}> 🎵 Alabanza</label>
+      ${admin ? '' : '<p class="ayuda" style="margin-top:2px">Solo un administrador puede dar o quitar acceso a Alabanza.</p>'}
+      <label for="aDisc">🌱 Discipulado</label>
+      <select id="aDisc"><option value="">Sin acceso</option>${Object.entries(ROL_D).map(([k, v]) => `<option value="${k}" ${k === disc0 ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <div id="aMentorBox" ${disc0 ? '' : 'hidden'}><label for="aMentor">Su mentor</label>
+        <select id="aMentor"><option value="">Sin mentor por ahora</option>${mentores.map(x => `<option value="${x.id}" ${x.id === data?.mentor_id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select>
+        ${mentores.length ? '' : '<p class="ayuda">Todavía no hay mentores. Dale a alguien el rol de Mentor y luego asígnalo aquí.</p>'}</div>
+      <button class="btn prim blk" id="aGuardar">${pendiente ? 'Aprobar' : 'Guardar'}</button>
+      ${pendiente && admin && p.estado === 'pendiente' ? '<button class="btn peligro blk" id="aRechazar">Rechazar solicitud</button>' : ''}`;
+    body.querySelectorAll('[data-cerrar]').forEach(b => (b.onclick = cerrarModal));
+    $('#aDisc', body).onchange = e => ($('#aMentorBox', body).hidden = !e.target.value);
+    $('#aGuardar', body).onclick = e => ocupado(e.currentTarget, async () => {
+      const ala = $('#aAla', body).checked, dr = $('#aDisc', body).value || null;
+      if (!ala && !dr) {
+        if (pendiente) return toast('Elige al menos un ministerio', true);
+        if (!confirm(`${p.nombre} se quedará sin acceso a ningún ministerio. ¿Continuar?`)) return;
+      }
+      const { error } = await sb.rpc('guardar_accesos', { p_perfil: p.id, p_alabanza: ala, p_disc_rol: dr, p_mentor: dr ? ($('#aMentor', body).value || null) : null });
+      if (error) return fallo(error, 'Accesos');
+      await cargarModulos(); await cargarPerfiles();
+      cerrarModal(); toast(pendiente ? `${p.nombre} aprobado` : 'Accesos guardados'); alGuardar();
+    });
+    const rr = $('#aRechazar', body);
+    if (rr) rr.onclick = async () => {
+      if (!confirm(`¿Rechazar la solicitud de ${p.nombre}?`)) return;
+      const { error } = await sb.from('profiles').update({ estado: 'bloqueado' }).eq('id', p.id);
+      if (error) return fallo(error, 'Rechazar');
+      await cargarPerfiles(); cerrarModal(); toast('Solicitud rechazada'); alGuardar();
+    };
+  });
 }
 
 // ---------- link público de solo lectura (programa.html?k=…) ----------
@@ -3567,32 +3678,34 @@ function vistaPerfil() {
   const p = st.perfil;
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  app.innerHTML = encabezado('Mi perfil', { atras: '#/equipo' }) + `
+  const ala = tieneAlabanza();
+  const misMods = [ala && st.hayModulos ? '🎵 Alabanza' : '', discRol() ? `🌱 Discipulado (${{ discipulo: 'discípulo', mentor: 'mentor', pastor: 'mentor que administra' }[discRol()]})` : ''].filter(Boolean).join(' · ');
+  app.innerHTML = encabezado('Mi perfil', { atras: st.modulo === 'discipulado' ? '#/d/inicio' : '#/equipo' }) + `
     <form id="fPerfil" class="card">
       <label style="margin-top:0">Nombre</label><input name="nombre" required maxlength="60" value="${esc(p.nombre)}">
-      <label>Instrumento / rol</label><select name="instrumento">${opcionesInstrumento(p.instrumento)}</select>
-      <p class="ayuda">${esc(p.email || '')} · ${p.rol === 'admin' ? 'Administrador' : 'Miembro'}</p>
+      ${ala ? `<label>Instrumento / rol</label><select name="instrumento">${opcionesInstrumento(p.instrumento)}</select>` : ''}
+      <p class="ayuda">${esc(p.email || '')} · ${p.rol === 'admin' ? 'Administrador' : 'Miembro'}${misMods ? '<br>' + esc(misMods) : ''}</p>
       <button class="btn prim blk">Guardar</button>
     </form>
     <div class="card">
       <b>🎨 Apariencia</b>
       <div class="seg" id="segTema">${[['auto', '📱 Automático'], ['claro', '☀️ Claro'], ['oscuro', '🌙 Oscuro']].map(([k, v]) =>
         `<button type="button" data-tema="${k}" class="${(ajustes.tema || 'auto') === k ? 'activo' : ''}">${v}</button>`).join('')}</div>
-      <label class="check"><input type="checkbox" id="chkLatino" ${ajustes.latino ? 'checked' : ''}> Mostrar acordes en cifrado latino (Do, Re, Mi…)</label>
+      ${ala ? `<label class="check"><input type="checkbox" id="chkLatino" ${ajustes.latino ? 'checked' : ''}> Mostrar acordes en cifrado latino (Do, Re, Mi…)</label>` : ''}
     </div>
-    <div class="card" id="cardTonos"></div>
+    ${ala ? `<div class="card" id="cardTonos"></div>
     <div id="cardNotif"></div>
-    <div id="cardIndisp"></div>
+    <div id="cardIndisp"></div>` : `<button class="btn blk" id="bCal" style="margin-top:0;margin-bottom:12px">📅 Mis mentorías en el calendario del celular</button>`}
     ${!standalone ? `<div class="card instalar">
       <p>📲 ${ios ? 'Para instalar en iPhone: abre en <b>Safari</b>, toca <b>Compartir</b> ⬆️ y luego <b>"Agregar a inicio"</b>.' : 'Instala la app en tu celular para abrirla como cualquier otra.'}</p>
       ${!ios ? `<button class="btn sm prim" id="bInstalar">Instalar</button>` : ''}
     </div>` : ''}
-    <div class="card">
+    ${ala ? `<div class="card">
       <b>📴 Usar sin internet</b>
       <p class="ayuda" style="margin:4px 0 10px">Descarga todas las canciones (letra, notas, tonos y partituras) y los próximos días de la agenda para verlos sin señal. Lo que abras con internet también se guarda solo.</p>
       <button class="btn prim blk" id="bOffline" style="margin-top:0">⬇️ Descargar para usar sin internet</button>
       <p class="ayuda" id="ultDescarga">${(() => { try { const t = localStorage.getItem('alabanza.descarga'); return t ? 'Última descarga: ' + haceCuanto(t) : ''; } catch { return ''; } })()}</p>
-    </div>
+    </div>` : ''}
     <button class="btn blk" id="bClave">Cambiar contraseña</button>
     <button class="btn peligro blk" id="bSalir">Cerrar sesión</button>
     <p class="ayuda" style="text-align:center;margin-top:20px">${esc(APP_NOMBRE)}</p>`;
@@ -3600,25 +3713,29 @@ function vistaPerfil() {
     e.preventDefault();
     ocupado(e.target.querySelector('button'), async () => {
       const f = Object.fromEntries(new FormData(e.target));
-      const { error } = await sb.from('profiles').update({ nombre: f.nombre.trim(), instrumento: f.instrumento }).eq('id', st.uid);
+      const cambios = { nombre: f.nombre.trim(), ...(f.instrumento !== undefined ? { instrumento: f.instrumento } : {}) };
+      const { error } = await sb.from('profiles').update(cambios).eq('id', st.uid);
       if (error) return fallo(error, 'Perfil');
-      st.perfil = { ...st.perfil, nombre: f.nombre.trim(), instrumento: f.instrumento };
+      st.perfil = { ...st.perfil, ...cambios };
       st.perfiles.set(st.uid, st.perfil);
       toast('Perfil actualizado'); rutear();
     });
   };
-  $('#chkLatino').onchange = e => { ajustes.latino = e.target.checked; guardarAjustes(); toast('Listo'); };
+  if ($('#chkLatino')) $('#chkLatino').onchange = e => { ajustes.latino = e.target.checked; guardarAjustes(); toast('Listo'); };
+  if ($('#bCal')) $('#bCal').onclick = () => modalCalendario();
   $('#segTema').onclick = e => {
     const b = e.target.closest('[data-tema]'); if (!b) return;
     ajustes.tema = b.dataset.tema; guardarAjustes(); aplicarTema();
     $('#segTema').querySelectorAll('button').forEach(x => x.classList.toggle('activo', x === b));
   };
-  pintarMisTonos();
+  if (ala) pintarMisTonos();
   $('#bClave').onclick = modalNuevaClave;
   $('#bSalir').onclick = async () => { await idb.limpiar(); await sb.auth.signOut(); location.hash = ''; };
-  $('#bOffline').onclick = e => descargarSinConexion(e.currentTarget);
-  pintarNotif();
-  pintarIndisp();
+  if (ala) {
+    $('#bOffline').onclick = e => descargarSinConexion(e.currentTarget);
+    pintarNotif();
+    pintarIndisp();
+  }
   const bi = $('#bInstalar');
   if (bi) bi.onclick = async () => {
     if (st.instalarEvt) { st.instalarEvt.prompt(); st.instalarEvt = null; }
@@ -4003,3 +4120,12 @@ async function pintarNotif() {
     st.perfil = { ...st.perfil, notif }; st.perfiles.set(st.uid, st.perfil);
   };
 }
+
+// =====================================================================
+// MÓDULO DISCIPULADO (js/discipulado.js)
+// =====================================================================
+const disc = crearDiscipulado({
+  sb, st, app, $, esc, toast, fallo, abrirModal, cerrarModal, ocupado, encabezado, iniciales, nombreDe, haceCuanto, conCache,
+  modalCalendario, modalAccesos, discRol, esAdmin, rutear,
+  recargarPerfiles: async () => { await cargarModulos(); await cargarPerfiles(); },
+});

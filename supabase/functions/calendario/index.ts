@@ -11,6 +11,23 @@ const ROLES: Record<string, string> = {
   bajo: 'Bajo', bateria: 'Batería', percusion: 'Percusión menor', otro: 'Otro',
 };
 const ESTADO: Record<string, string> = { pendiente: 'Sin responder', por_confirmar: 'Por confirmar', confirmado: 'Confirmado' };
+const MODALIDAD: Record<string, string> = { presencial: 'Presencial', videollamada: 'Videollamada', llamada: 'Llamada' };
+
+// Mentorías donde la persona es mentor, discípulo o parte del grupo. Si no tiene Discipulado
+// o la base de datos aún no lo tiene, devuelve una lista vacía y el calendario sigue como antes.
+async function mentoriasDe(perfil: string, desde: string) {
+  const acc = await sb.from('modulos_acceso').select('rol').eq('perfil_id', perfil).eq('modulo', 'discipulado').maybeSingle();
+  if (acc.error || !acc.data) return [];
+  const { data: rel } = await sb.from('disc_discipulos').select('mentor_id').eq('discipulo_id', perfil).maybeSingle();
+  const filtro = [`mentor_id.eq.${perfil}`, `discipulo_id.eq.${perfil}`];
+  if (rel?.mentor_id) filtro.push(`and(mentor_id.eq.${rel.mentor_id},discipulo_id.is.null)`);
+  const { data, error } = await sb.from('disc_mentorias')
+    .select('id, mentor_id, discipulo_id, inicio, duracion_min, modalidad, lugar, tema, estado, mentor:profiles!disc_mentorias_mentor_id_fkey(nombre), disc:profiles!disc_mentorias_discipulo_id_fkey(nombre), asis:disc_asistencia(perfil_id, estado)')
+    .or(filtro.join(',')).neq('estado', 'cancelada').gte('inicio', desde);
+  if (error) return [];
+  // si la persona avisó que no puede, no se muestra
+  return (data ?? []).filter((m: any) => !(m.asis ?? []).some((a: any) => a.perfil_id === perfil && a.estado === 'no_puedo'));
+}
 
 const txt = (s: string) => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 const fecha = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -50,10 +67,13 @@ Deno.serve(async (req) => {
     d.asig.push(a); dias.set(s.id, d);
   }
 
+  // Mentorías de Discipulado (si la persona tiene ese módulo y ya se ejecutó 015)
+  const mentorias = await mentoriasDe(tok.perfil_id, desde);
+
   const ahora = fecha(new Date());
   const L: string[] = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Alabanza RDV//Mis dias//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    'X-WR-CALNAME:Alabanza RDV · Mis días', 'X-WR-TIMEZONE:America/Panama',
+    `X-WR-CALNAME:${mentorias.length ? 'Roca de Vida' : 'Alabanza RDV'} · Mis días`, 'X-WR-TIMEZONE:America/Panama',
     'REFRESH-INTERVAL;VALUE=DURATION:PT2H', 'X-PUBLISHED-TTL:PT2H',
   ];
   for (const { s, asig } of dias.values()) {
@@ -74,6 +94,20 @@ Deno.serve(async (req) => {
     };
     evento(`dia-${s.id}`, new Date(s.fecha), 120, `${sinConfirmar ? '⏳ ' : ''}${emoji} ${s.titulo} · ${roles}`);
     if (s.ensayo_fecha) evento(`ensayo-${s.id}`, new Date(s.ensayo_fecha), 90, `🎹 Ensayo · ${s.titulo} · ${roles}`);
+  }
+  for (const m of mentorias) {
+    const soyMentor = m.mentor_id === tok.perfil_id;
+    const con = soyMentor ? (m.discipulo_id ? `con ${m.disc?.nombre ?? 'tu discípulo'}` : 'con tu grupo') : (m.discipulo_id ? `con ${m.mentor?.nombre ?? 'tu mentor'}` : `con ${m.mentor?.nombre ?? 'tu mentor'} y el grupo`);
+    const propuesta = m.estado === 'propuesta';
+    const titulo = `${propuesta ? '⏳ ' : ''}🤝 Mentoría ${con}`;
+    const desc = [m.tema ? `Tema: ${m.tema}` : '', `Modalidad: ${MODALIDAD[m.modalidad] ?? m.modalidad}`, propuesta ? 'Estado: propuesta (falta que el mentor la acepte)' : '', `\nAbrir en la app: ${APP}#/d/mentorias`].filter(Boolean).join('\n');
+    const ini = new Date(m.inicio);
+    L.push('BEGIN:VEVENT', `UID:mentoria-${m.id}@alabanza-rdv`, `DTSTAMP:${ahora}`, `DTSTART:${fecha(ini)}`,
+      `DTEND:${fecha(new Date(ini.getTime() + (m.duracion_min ?? 60) * 60e3))}`, `SUMMARY:${txt(titulo)}`, `DESCRIPTION:${txt(desc)}`,
+      `URL:${APP}#/d/mentorias`);
+    if (m.lugar) L.push(`LOCATION:${txt(m.lugar)}`);
+    L.push(`STATUS:${propuesta ? 'TENTATIVE' : 'CONFIRMED'}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${txt(titulo)}`, 'TRIGGER:-PT1H', 'END:VALARM', 'END:VEVENT');
   }
   L.push('END:VCALENDAR');
 

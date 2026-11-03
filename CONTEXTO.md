@@ -39,10 +39,14 @@ Costo: **$0** (GitHub Pages + plan gratis de Supabase).
 11. `013_historial_repertorio.sql` ⏳ **ejecutar**: historial de cambios del repertorio de cada día y función `restaurar_repertorio` (solo admins).
 12. `014_notas_voz.sql` ⏳ **ejecutar**: notas de voz en el chat del día, general y privado (columnas `audio_*` en `mensajes_evento` y bucket `notas-voz`, 10 MB, máx 3 min por nota).
 
+13. `015_modulos_discipulado.sql` ⏳ **ejecutar**: módulos (Alabanza / Discipulado), accesos por módulo (`modulos_acceso`, `guardar_accesos`), y todo Discipulado (`disc_*`). Los aprobados actuales quedan en Alabanza automáticamente. Después publicar de nuevo la Edge Function `calendario` (ahora incluye mentorías).
+
 No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 
 ## Permisos
-- **Registro abierto, con aprobación:** quien se registra queda *pendiente* hasta que un admin lo aprueba en la pestaña **Equipo**.
+- **Registro abierto, con aprobación:** quien se registra queda *pendiente* hasta que un admin lo aprueba en la pestaña **Equipo** (o un pastor de Discipulado en Discipulado → Gestionar → Personas). Al aprobar se elige el módulo: Alabanza, Discipulado (discípulo, mentor o pastor, y su mentor) o ambos.
+- **Módulos:** `es_aprobado()` = aprobado **y** con acceso a Alabanza. Quien solo está en Discipulado no ve nada de Alabanza, y al revés. El admin de Alabanza no ve Discipulado si no tiene ese módulo.
+- **Link de invitación a Discipulado:** `…/#/registro?m=discipulado`.
 - **Miembros:** ven todo; comentan y reaccionan; editan notas por instrumento; guardan su propio tono; confirman si pueden servir.
 - **Admins:** publican en el muro; gestionan canciones, agenda, equipo del día, tipos y horarios; aprueban usuarios; controlan el modo en vivo.
 - Para crear un admin desde SQL:
@@ -71,6 +75,16 @@ No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 8. **Mis días:** pestaña con los días de cada uno, su rol, confirmación, repertorio con indicadores (nota, partitura, BPM), ▶ Preparar y guardar sin internet.
 9. **Cifrado iReal:** símbolos { } [ ] Z N1 N2 S Q f % x r n <texto> T34; importar links irealb:// (`js/cifrado.js` → `leerIreal`); borrador desde audio (`js/audio-cifrado.js`, se procesa en el celular).
 10. **Equipo:** integrantes por instrumento; aprobar, nombrar admin, desactivar.
+
+## Módulo Discipulado (`js/discipulado.js`, rutas `#/d/...`, paleta tierra en `body.mod-disc`)
+- **Inicio:** racha, semana, devocional de hoy, próxima mentoría, reto activo; tarjetas de mentor y pastor.
+- **Devocional:** uno por fecha (lo publica el pastor). Respuesta con 4 niveles: Solo yo / Mi mentor / Mi grupo / Comunidad. Racha = devocionales publicados seguidos respondidos (`disc_racha`).
+- **Muro:** reflexión, testimonio, petición de oración, versículo, anuncio, logro. Visibilidad Comunidad / Mi grupo / Solo mi mentor. Reacciones 🙏 Orando y 🙌 Amén, comentarios.
+- **Retos:** el pastor los crea (días y nivel); cada uno marca "Cumplí hoy". Ruta de crecimiento Raíz → Tallo → Rama → Fruto; el mentor sube el nivel. Insignias calculadas.
+- **Mentorías:** el mentor agenda (con una persona o todo el grupo); el discípulo propone y el mentor acepta. Confirmar / No puedo. Van al calendario del celular.
+- **Panel del mentor:** racha, último devocional, próxima mentoría, alertas; ficha del discípulo con lo que compartió y **notas privadas que solo lee el mentor que las escribió** (ni pastor ni admin).
+- **Gestionar (pastor):** devocionales por fecha, retos, personas y accesos.
+- Notificaciones push de Discipulado: aún no.
 
 ## Pendientes / próximos pasos
 - [ ] Confirmar que se ejecutaron los scripts 002, 003, 004, 007 y 008, y ejecutar 009.

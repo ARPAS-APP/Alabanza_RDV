@@ -842,3 +842,172 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
   .set-item .tono-pill { min-width: 36px; padding: 4px 6px; font-size: 14px; }
   .set-item .acc-item button { padding: 4px 3px; font-size: 14px; }
 }
+
+/* =====================================================================
+   MÓDULOS · cambio de ministerio y registro
+   ===================================================================== */
+.mod-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 10px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--linea); color: var(--texto); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.mods-reg { border: 0; padding: 0; margin: 12px 0 0; }
+.mods-reg legend { font-size: 13px; color: var(--texto-2); font-weight: 600; padding: 0; margin-bottom: 2px; }
+.mods-reg .check { margin-top: 8px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 380px) { .top h1 { font-size: 19px; } .mod-chip { padding: 6px 8px; } }
+
+/* =====================================================================
+   DISCIPULADO · paleta tierra (terracota, oliva, arena, salvia, azul grisáceo)
+   ===================================================================== */
+body.mod-disc {
+  --bg: #23251b; --bg-2: #2b2e22; --card: #2e3124; --card-2: #383b2d; --linea: #45493a;
+  --texto: #f1eadf; --texto-2: #cfc6b4; --texto-3: #a39b89;
+  --acento: #c9a57e; --acento-2: #dcbf9a; --acento-txt: #2b2a22;
+  --ok: #a9b58f; --peligro: #e08a6e; --info: #9db0b8;
+  --nav-bg: rgba(35, 37, 27, .9); --suave: rgba(255, 255, 255, .07);
+  --msg-err: #f0b4a0; --msg-ok: #cbd5b0; --offline-bg: #3a3322;
+  --d-hero: #3f4330; --d-hero-txt: #f1eadf; --d-hero-2: #ddd6c3; --d-hero-linea: #555a42;
+  --d-arena: #c9a57e; --d-arena-suave: rgba(201, 165, 126, .16); --d-salvia: rgba(169, 181, 143, .16);
+  color-scheme: dark;
+}
+:root[data-tema="claro"] body.mod-disc {
+  --bg: #f7f2ea; --bg-2: #efe7da; --card: #ffffff; --card-2: #f4ede2; --linea: #e2d7c6;
+  --texto: #3f4330; --texto-2: #6a6656; --texto-3: #7d776a;
+  --acento: #9c5535; --acento-2: #8a4a2e; --acento-txt: #ffffff;
+  --ok: #5e6440; --peligro: #a33d2a; --info: #577073;
+  --nav-bg: rgba(255, 253, 249, .94); --suave: rgba(63, 67, 48, .06); --borde: var(--linea);
+  --msg-err: #8a3a22; --msg-ok: #4a4e32; --offline-bg: #f1e3d2;
+  --d-hero: #3f4330; --d-hero-txt: #ffffff; --d-hero-2: #ddd6c3; --d-hero-linea: #555a42;
+  --d-arena: #c9a57e; --d-arena-suave: #f1e3d2; --d-salvia: #e2e5d6;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema="oscuro"]) body.mod-disc {
+    --bg: #f7f2ea; --bg-2: #efe7da; --card: #ffffff; --card-2: #f4ede2; --linea: #e2d7c6;
+    --texto: #3f4330; --texto-2: #6a6656; --texto-3: #7d776a;
+    --acento: #9c5535; --acento-2: #8a4a2e; --acento-txt: #ffffff;
+    --ok: #5e6440; --peligro: #a33d2a; --info: #577073;
+    --nav-bg: rgba(255, 253, 249, .94); --suave: rgba(63, 67, 48, .06); --borde: var(--linea);
+    --msg-err: #8a3a22; --msg-ok: #4a4e32; --offline-bg: #f1e3d2;
+    --d-hero: #3f4330; --d-hero-txt: #ffffff; --d-hero-2: #ddd6c3; --d-hero-linea: #555a42;
+    --d-arena: #c9a57e; --d-arena-suave: #f1e3d2; --d-salvia: #e2e5d6;
+    color-scheme: light;
+  }
+}
+/* lo que en Alabanza es dorado fijo, aquí toma el color del módulo */
+body.mod-disc .seg button.activo, body.mod-disc .chip.activo, body.mod-disc .reac.mia { border-color: var(--acento); background: color-mix(in srgb, var(--acento) 16%, transparent); }
+body.mod-disc .tag.warn { background: var(--d-arena-suave); color: var(--acento-2); }
+body.mod-disc .top img { filter: saturate(.6); }
+
+.d-eti { display: block; font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--acento-2); }
+.d-hero { background: var(--d-hero); color: var(--d-hero-txt); border-radius: 22px; padding: 18px; margin-bottom: 12px; display: grid; gap: 14px; }
+.d-hero small { color: var(--d-hero-2); }
+.d-hero .d-eti { color: var(--d-arena); }
+.d-racha { display: flex; align-items: center; gap: 12px; }
+.d-racha b { display: block; font-size: 22px; letter-spacing: -.3px; }
+.d-fuego { width: 48px; height: 48px; border-radius: 14px; background: var(--d-hero-linea); display: grid; place-items: center; font-size: 24px; flex: none; }
+.d-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.d-dia { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--d-hero-2); }
+.d-dia i { width: 28px; height: 28px; border-radius: 50%; background: var(--d-hero-linea); box-sizing: border-box; }
+.d-dia i.hecho { background: var(--d-arena); }
+.d-dia i.hoy { background: transparent; border: 2px solid var(--d-arena); }
+.d-dia i.perdido { background: transparent; border: 2px dashed var(--d-hero-linea); }
+.d-dia i.sin { background: transparent; border: 1px solid var(--d-hero-linea); opacity: .5; }
+.d-dia i.futuro { opacity: .45; }
+
+.d-dev { display: block; text-decoration: none; color: inherit; }
+.d-dev h2 { margin: 6px 0 2px; font-size: 22px; letter-spacing: -.3px; }
+.d-dev .d-ref { color: var(--texto-2); font-size: 14px; }
+.d-dev .btn { text-align: center; }
+.d-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.d-mini { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; margin-bottom: 10px; }
+.d-mini b { font-size: 15px; }
+.d-mini small { color: var(--texto-2); font-size: 13px; }
+.d-mini-reto { background: var(--d-arena-suave); }
+.d-mini-ico { font-size: 20px; }
+.d-fila .d-mini-ico { width: 40px; height: 40px; border-radius: 12px; background: var(--d-salvia); display: grid; place-items: center; flex: none; }
+.d-fila { margin-bottom: 10px; }
+.d-aviso { display: grid; gap: 2px; text-decoration: none; color: inherit; background: var(--d-arena-suave); }
+.d-aviso span { font-size: 13px; color: var(--texto-2); }
+.d-barra { height: 8px; border-radius: 99px; background: var(--card-2); overflow: hidden; margin-top: 4px; }
+.d-hero .d-barra { background: var(--d-hero-linea); }
+.d-barra i { display: block; height: 100%; background: var(--acento); border-radius: 99px; transition: width .4s; }
+.d-hero .d-barra i { background: var(--d-arena); }
+
+.d-pasaje blockquote { margin: 0; font-size: 17px; line-height: 1.6; }
+.d-bloque p { margin: 8px 0 0; line-height: 1.6; }
+.d-aplica { background: var(--d-arena-suave); }
+.d-vis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.d-vis button { text-align: left; display: grid; gap: 2px; min-height: 56px; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--linea); background: var(--card); color: var(--texto); font: inherit; cursor: pointer; }
+.d-vis button b { font-size: 14px; }
+.d-vis button small { font-size: 12px; color: var(--texto-3); }
+.d-vis button.activo { border-color: var(--acento); background: var(--acento); color: var(--acento-txt); }
+.d-vis button.activo small { color: inherit; opacity: .85; }
+.d-vis button:disabled { opacity: .45; cursor: not-allowed; }
+.d-chk { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--linea); display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none; color: var(--acento-txt); }
+.d-chk.si { background: var(--ok); border-color: var(--ok); color: #fff; }
+
+.d-post { margin-bottom: 0; }
+.d-post-h { display: flex; align-items: center; gap: 10px; }
+.d-post-h .info { flex: 1; min-width: 0; }
+.d-post-h .info b { display: block; font-size: 14px; }
+.d-post-h .info small { color: var(--texto-3); font-size: 12px; }
+body.mod-disc .item .info small { display: block; }
+.d-tipo { margin-top: 10px; }
+.d-post-t { margin-top: 8px; line-height: 1.55; overflow-wrap: anywhere; }
+.d-av { background: var(--d-salvia); color: var(--texto); }
+.d-av.grande { width: 44px; height: 44px; font-size: 15px; }
+.tag.d-tipo-testimonio, .tag.d-tipo-oracion { background: var(--d-arena-suave); color: var(--acento-2); }
+.tag.d-tipo-logro, .tag.d-tipo-anuncio { background: var(--d-hero); color: var(--d-hero-txt); }
+.tag.d-tipo-versiculo, .tag.d-tipo-reflexion { background: var(--d-salvia); color: var(--texto); }
+.d-candado { margin: -4px 0 10px; }
+.d-coms { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 10px; display: grid; gap: 8px; }
+.d-com { font-size: 14px; line-height: 1.45; }
+.d-com small { color: var(--texto-3); margin-left: 4px; }
+.d-com-f { display: flex; gap: 8px; }
+.d-com-f input { flex: 1; min-width: 0; }
+
+.d-ruta-h { display: flex; justify-content: space-between; align-items: baseline; }
+.d-ruta-h span { color: var(--d-arena); font-weight: 700; font-size: 13px; }
+.d-ruta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; text-align: center; }
+.d-ruta > div { display: grid; justify-items: center; gap: 3px; }
+.d-ruta i { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 700; background: var(--d-hero-linea); color: var(--d-hero-2); }
+.d-ruta .hecho i { background: var(--d-arena); color: #2b2a22; }
+.d-ruta .actual i { background: #fff; color: #2b2a22; box-shadow: 0 0 0 3px var(--d-arena); }
+.d-ruta b { font-size: 13px; }
+.d-ruta small { font-size: 11px; line-height: 1.3; }
+.d-ruta-pie { font-size: 12px; }
+.d-reto-h { display: flex; align-items: center; gap: 10px; }
+.d-reto-h .info { flex: 1; min-width: 0; }
+.d-reto-h .info b { display: block; }
+.d-reto-h .info small { color: var(--texto-3); }
+.d-num { font-weight: 700; color: var(--texto-2); font-size: 14px; }
+.d-insignias { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; text-align: center; }
+.d-insignias > div { display: grid; justify-items: center; gap: 6px; }
+.d-insignias i { width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; font-style: normal; font-size: 24px; background: var(--card-2); filter: grayscale(1); opacity: .45; }
+.d-insignias .ok i { background: var(--d-arena-suave); filter: none; opacity: 1; }
+.d-insignias small { font-size: 11px; font-weight: 600; color: var(--texto-2); line-height: 1.3; }
+
+.d-ment { display: flex; gap: 14px; }
+.d-ment.pasada { opacity: .7; }
+.d-ment .info { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.d-ment .info small { color: var(--texto-2); font-size: 13px; }
+.d-ment .tag { justify-self: start; }
+.d-fecha { width: 56px; flex: none; border-radius: 14px; background: var(--d-salvia); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; }
+.d-fecha small { font-size: 11px; font-weight: 700; color: var(--texto-2); text-transform: uppercase; }
+.d-fecha b { font-size: 24px; line-height: 1.1; }
+.d-acc { margin-top: 6px; flex-wrap: wrap; }
+.d-acc > * { flex: 0 0 auto; }
+.d-cal b { font-size: 16px; }
+.d-cal-btn { background: var(--d-arena); border-color: var(--d-arena); color: #2b2a22; font-weight: 700; }
+
+.d-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.d-stats > div { background: var(--card); border: 1px solid var(--borde); border-radius: 16px; padding: 12px; display: grid; gap: 2px; }
+.d-stats b { font-size: 22px; }
+.d-stats small { font-size: 12px; color: var(--texto-2); font-weight: 600; line-height: 1.3; }
+.d-alerta { display: flex; gap: 10px; align-items: flex-start; background: var(--d-arena-suave); font-size: 14px; line-height: 1.5; }
+.d-chip-racha { padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--d-arena-suave); color: var(--acento-2); flex: none; }
+.d-chip-racha.cero { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }
+.d-notas .d-nota { border-top: 1px solid var(--d-hero-linea); padding-top: 10px; display: grid; gap: 4px; line-height: 1.5; }
+.d-notas .d-nota-vacia { margin: 0; color: var(--d-hero-2); font-size: 14px; }
+.d-notas textarea { background: rgba(0, 0, 0, .18); border-color: var(--d-hero-linea); color: var(--d-hero-txt); min-height: 70px; }
+.d-notas textarea::placeholder { color: var(--d-hero-2); }
+.d-notas .btn-link { color: var(--d-hero-2); }
+.d-notas form { display: grid; gap: 8px; }
