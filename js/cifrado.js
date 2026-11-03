@@ -63,6 +63,7 @@ export function generarCifrado(letra) {
  *   izq: 'rep' ({) | 'doble' ([)          der: 'rep' (}) | 'doble' (]) | 'fin' (Z)
  *   casilla: 1|2|3 (N1, N2…)   marcas: 'coda' (Q), 'segno' (S), 'fermata' (f)
  *   repite: 1 (% o x) | 2 (r: repite 2 compases)   tsig: '3/4' (T34)   texto: <D.C. al Coda>
+ *   arriba: true si el texto va encima del compás (<^x3>, o el código de posición de iReal <*69x3>)
  */
 export function parseCifrado(texto) {
   const secciones = [];
@@ -76,7 +77,7 @@ export function parseCifrado(texto) {
     if (!actual) { actual = { letra: '', nombre: '', filas: [] }; secciones.push(actual); }
     const linea = [];
     let cur = null, izqPend = null;
-    const nuevo = () => (cur ??= { ac: [], izq: izqPend, der: null, casilla: null, marcas: [], texto: '', repite: 0, tsig: '' });
+    const nuevo = () => (cur ??= { ac: [], izq: izqPend, der: null, casilla: null, marcas: [], texto: '', arriba: false, repite: 0, tsig: '' });
     const cerrar = der => {
       const destino = cur && (cur.ac.length || cur.repite || cur.casilla || cur.marcas.length || cur.texto || cur.tsig) ? cur : null;
       if (destino) { if (der) destino.der = der; linea.push(destino); todos.push(destino); }
@@ -90,7 +91,11 @@ export function parseCifrado(texto) {
       else if (t === '}') cerrar('rep');
       else if (t === ']') cerrar('doble');
       else if (t === 'Z') cerrar('fin');
-      else if (t[0] === '<') nuevo().texto = t.slice(1, -1).trim();
+      else if (t[0] === '<') {
+        // "^" o un código de posición de iReal (*69) al inicio: el texto va arriba y el código no se muestra
+        const raw = t.slice(1, -1).trim(), m2 = /^(?:\^|\*\d{2})\s*/.exec(raw);
+        const c = nuevo(); c.texto = m2 ? raw.slice(m2[0].length) : raw; c.arriba = !!m2;
+      }
       else if (/^N[1-3]$/.test(t)) nuevo().casilla = +t[1];
       else if (t === 'Q') nuevo().marcas.push('coda');
       else if (t === 'S') nuevo().marcas.push('segno');
@@ -158,7 +163,7 @@ export function renderCifrado(texto, { semis = 0, bemoles = false, latino = fals
       ${c.marcas.length ? `<span class="cf-marca">${c.marcas.map(m => MARCA[m]).join('')}</span>` : ''}
       ${c.tsig ? `<span class="cf-tsig">${esc(c.tsig.split('/')[0])}<br>${esc(c.tsig.split('/')[1])}</span>` : ''}
       ${centro}
-      ${c.texto ? `<span class="cf-texto">${esc(c.texto)}</span>` : ''}
+      ${c.texto ? `<span class="cf-texto${c.arriba ? ' arriba' : ''}${/^x\s?\d+$/i.test(c.texto) ? ' veces' : ''}">${esc(c.texto)}</span>` : ''}
     </div>`;
   };
   return `<div class="cf">${secs.map(s => `
@@ -203,8 +208,8 @@ function musicaAApp(musica) {
   let m = musica.replace(/\([^)]*\)/g, ' ').replace(/,/g, ' ')
     // "*" pegado a la raíz del acorde (D*m) no es sección: se quita para que quede Dm
     .replace(/([A-G][#b]?)\*(?=[a-z0-9^+\-])/g, '$1')
-    // códigos de posición de iReal dentro de comentarios: <*69x3> → <x3>
-    .replace(/<\s*\*\d{2}\s*/g, '<');
+    // códigos de posición de iReal dentro de comentarios: <*69x3> → <^x3> (va encima del compás, como en iReal)
+    .replace(/<\s*\*\d{2}\s*/g, '<^');
   const toks = m.match(/<[^>]*>|\*[A-Za-z](?![a-z])|[{}\[\]|]|T\d\d|N[1-3]|[^\s{}\[\]|<>*]+/g) || [];
   const NOM = { i: 'I Intro', v: 'V Verso', V: 'V Verso', A: 'A', B: 'B', C: 'C', D: 'D' };
   const lineas = [];
@@ -272,6 +277,6 @@ export const AYUDA_CIFRADO = `*A Verso         ← sección (letra y nombre)
 | E B/D# | F#m | N1 E | B }   ← 2 acordes · N1 1.ª casilla
 | N2 E | % | S A | Q B Z   ← S segno · Q coda · Z final
 *B Coro
-[ A | B | <x2> C#m | n ]   ← [ ] doble barra · <texto> · n = N.C.`;
+[ A | B | <x2> C#m | n ]   ← [ ] doble barra · <texto> abajo · <^texto> arriba · n = N.C.`;
 
 export { esLineaDeAcordes };
