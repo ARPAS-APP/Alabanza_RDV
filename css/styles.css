@@ -394,6 +394,19 @@ table.plan { border-collapse: collapse; font-size: 13px; min-width: 100%; }
 .chat-form { display: flex; gap: 8px; margin-top: 10px; align-items: flex-end; }
 .chat-form textarea { flex: 1; min-height: 40px; max-height: 120px; resize: none; margin: 0; }
 .chat-vacio { color: var(--texto-3); font-size: 13px; text-align: center; padding: 10px 0; }
+.chat-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 8px; margin-bottom: 6px; border-bottom: 1px solid var(--linea); scrollbar-width: none; }
+.chat-tabs::-webkit-scrollbar { display: none; }
+.chat-tab { flex: none; position: relative; border: 1px solid var(--linea); background: none; color: var(--texto-2); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.chat-tab.activo { background: var(--acento); border-color: var(--acento); color: var(--acento-txt); }
+.chat-tab.mas { border-style: dashed; color: var(--texto-3); }
+.chat-tab .punto { position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--peligro); }
+.chat-nuevo-priv { display: flex; flex-direction: column; gap: 4px; padding: 8px; margin-bottom: 8px; border-radius: 12px; background: var(--suave); }
+.chat-nuevo-priv[hidden], .chat-solo-ver[hidden], .chat-form[hidden], .men-at[hidden] { display: none; }
+.chat-persona { display: flex; align-items: center; gap: 10px; background: none; border: 0; color: var(--texto); font: inherit; text-align: left; padding: 6px; border-radius: 10px; cursor: pointer; }
+.chat-persona:hover { background: var(--suave); }
+.chat-persona b { display: block; font-size: 14px; }
+.chat-persona small { color: var(--texto-3); font-size: 12px; }
+.chat-solo-ver { margin: 10px 0 0; font-size: 12.5px; color: var(--texto-3); text-align: center; }
 
 /* ---------- cifrado en compases (estilo iReal) ---------- */
 .vista-tg { margin-bottom: 10px; }
