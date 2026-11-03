@@ -3519,7 +3519,7 @@ async function vistaEquipo(ctx) {
 }
 
 // ---------- accesos por ministerio (Alabanza / Discipulado) ----------
-const ROL_D = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Pastor' };
+const ROL_D = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Mentor (administra)' };
 function modalAccesos(p, alGuardar = () => {}) {
   if (!p) return;
   const admin = esAdmin();
@@ -3541,7 +3541,7 @@ function modalAccesos(p, alGuardar = () => {}) {
       <label for="aDisc">🌱 Discipulado</label>
       <select id="aDisc"><option value="">Sin acceso</option>${Object.entries(ROL_D).map(([k, v]) => `<option value="${k}" ${k === disc0 ? 'selected' : ''}>${v}</option>`).join('')}</select>
       <div id="aMentorBox" ${disc0 ? '' : 'hidden'}><label for="aMentor">Su mentor</label>
-        <select id="aMentor"><option value="">Sin mentor por ahora</option>${mentores.map(x => `<option value="${x.id}" ${x.id === data?.mentor_id ? 'selected' : ''}>${esc(x.nombre)} (${ROL_D[st.modsDe.get(x.id).discipulado].toLowerCase()})</option>`).join('')}</select>
+        <select id="aMentor"><option value="">Sin mentor por ahora</option>${mentores.map(x => `<option value="${x.id}" ${x.id === data?.mentor_id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select>
         ${mentores.length ? '' : '<p class="ayuda">Todavía no hay mentores. Dale a alguien el rol de Mentor y luego asígnalo aquí.</p>'}</div>
       <button class="btn prim blk" id="aGuardar">${pendiente ? 'Aprobar' : 'Guardar'}</button>
       ${pendiente && admin && p.estado === 'pendiente' ? '<button class="btn peligro blk" id="aRechazar">Rechazar solicitud</button>' : ''}`;
@@ -3679,7 +3679,7 @@ function vistaPerfil() {
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const ala = tieneAlabanza();
-  const misMods = [ala && st.hayModulos ? '🎵 Alabanza' : '', discRol() ? `🌱 Discipulado (${{ discipulo: 'discípulo', mentor: 'mentor', pastor: 'pastor' }[discRol()]})` : ''].filter(Boolean).join(' · ');
+  const misMods = [ala && st.hayModulos ? '🎵 Alabanza' : '', discRol() ? `🌱 Discipulado (${{ discipulo: 'discípulo', mentor: 'mentor', pastor: 'mentor que administra' }[discRol()]})` : ''].filter(Boolean).join(' · ');
   app.innerHTML = encabezado('Mi perfil', { atras: st.modulo === 'discipulado' ? '#/d/inicio' : '#/equipo' }) + `
     <form id="fPerfil" class="card">
       <label style="margin-top:0">Nombre</label><input name="nombre" required maxlength="60" value="${esc(p.nombre)}">

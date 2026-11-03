@@ -19,8 +19,8 @@ const TIPOS_POST = {
   anuncio:    { ico: '📣', txt: 'Anuncio' },
   logro:      { ico: '🏅', txt: 'Logro' },
 };
-const ROLES_D = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Pastor' };
-const ROLES_D_PL = { discipulo: 'Discípulos', mentor: 'Mentores', pastor: 'Pastores' };
+const ROLES_D = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Mentor (administra)' };
+const ROLES_D_PL = { discipulo: 'Discípulos', mentor: 'Mentores', pastor: 'Mentores que administran' };
 const MODALIDAD = { presencial: '📍 Presencial', videollamada: '💻 Videollamada', llamada: '📞 Llamada' };
 const DIAS_SEM = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const TZ = 'America/Panama';
@@ -594,7 +594,7 @@ export function crearDiscipulado(api) {
     const frios = filas.filter(r => !r.ultimo || r.ultimo < sumarDias(hoyF, -6));
     const alDia = filas.filter(r => r.ultimo === hoyF).length;
     const semana = filas.filter(r => r.proxima && new Date(r.proxima) - Date.now() < 7 * 86400e3).length;
-    app.innerHTML = cab(todos ? 'Todos los discípulos' : 'Mis discípulos', { sub: todos ? 'Vista de pastor' : 'Panel del mentor', atras: '#/d/inicio' }) + `
+    app.innerHTML = cab(todos ? 'Todos los discípulos' : 'Mis discípulos', { sub: todos ? 'Vista de administración' : 'Panel del mentor', atras: '#/d/inicio' }) + `
       ${esPastor() ? `<div class="segmentado" id="segTodos"><button data-t="0" class="${!todos ? 'activo' : ''}">Mis discípulos</button><button data-t="1" class="${todos ? 'activo' : ''}">Toda la iglesia</button></div>` : ''}
       <div class="d-stats"><div><b>${filas.length}</b><small>Discípulos</small></div><div><b>${alDia}</b><small>Al día hoy</small></div><div><b>${semana}</b><small>Mentorías esta semana</small></div></div>
       ${frios.length ? `<div class="card d-alerta">⚠️ <span>${frios.map(r => `<b>${esc(nombreDe(r.perfil_id))}</b> ${r.ultimo ? 'no hace el devocional desde ' + esc(haceDias(r.ultimo)) : 'aún no ha hecho ningún devocional'}${r.proxima ? '' : ' y no tiene mentoría agendada'}`).join('. ')}.</span></div>` : ''}
