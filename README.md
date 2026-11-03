@@ -18,6 +18,7 @@ App web instalable (PWA) para el equipo de alabanza: muro, canciones con acordes
    9. `supabase/011_chat_privado.sql`
    10. `supabase/012_audio_referencia.sql`
    11. `supabase/013_historial_repertorio.sql`
+   12. `supabase/014_notas_voz.sql`
 
    No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 2. **GitHub Pages:** Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.

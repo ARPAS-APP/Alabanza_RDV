@@ -65,6 +65,9 @@ const cantantes = () => {
   return aprobados().sort((a, b) => ((b.instrumento === 'voz') - (a.instrumento === 'voz')) || a.nombre.localeCompare(b.nombre));
 };
 
+/** 75 → "1:15" */
+const fmtDur = seg => `${Math.floor(seg / 60)}:${String(Math.floor(seg % 60)).padStart(2, '0')}`;
+
 function toast(msg, err = false) {
   const t = $('#toast');
   t.textContent = msg;
@@ -2970,6 +2973,11 @@ function htmlChat() {
         <div class="men-sug" id="menSug" hidden></div>
         <button type="button" class="btn-ico men-at" data-at aria-label="Mencionar a alguien">@</button>
         <textarea name="texto" maxlength="1000" rows="1" placeholder="Escribe… usa @ para mencionar" aria-label="Mensaje"></textarea>
+        <div class="chat-grabando" id="chatGrab" hidden>
+          <span class="grab-punto"></span><span class="grab-t" id="grabT">0:00</span><span class="grab-txt">Grabando…</span>
+          <button type="button" class="btn sm" data-grab-cancelar>Cancelar</button>
+        </div>
+        <button type="button" class="btn-ico chat-mic" data-mic aria-label="Grabar nota de voz">🎤</button>
         <button class="btn prim" type="submit">Enviar</button>
       </form>
     </div>`;
@@ -3015,7 +3023,9 @@ async function iniciarChat(s, ctx) {
     lista.innerHTML = ver.length ? ver.map(m => `
       <div class="chat-msg ${m.autor_id === st.uid ? 'mio' : ''}${m._nuevo ? ' nuevo' : ''}${m.autor_id !== st.uid && mencionaA(m.texto, s) ? ' me-nombra' : ''}" data-id="${m.id}">
         ${m.autor_id === st.uid ? '' : `<b>${esc(nombreDe(m.autor_id))}</b>`}
-        <p>${textoConMenciones(m.texto, s)}<small>${esc(fmtMsg(m.created_at))}</small>${m.autor_id === st.uid || esAdmin()
+        ${m.audio_url
+          ? `<div class="nota-voz"><audio controls preload="metadata" src="${esc(m.audio_url)}"></audio></div><p class="nota-pie">🎤 ${m.audio_seg ? esc(fmtDur(m.audio_seg)) : 'Nota de voz'}<small>${esc(fmtMsg(m.created_at))}</small>`
+          : `<p>${textoConMenciones(m.texto, s)}<small>${esc(fmtMsg(m.created_at))}</small>`}${m.autor_id === st.uid || esAdmin()
           ? `<button class="x" data-msg="${m.id}" aria-label="Borrar mensaje">✕</button>` : ''}</p>
       </div>`).join('') : `<div class="chat-vacio">${activa === 'g' ? 'Sin mensajes. ¡Escribe el primero!' : `🔒 Solo ${esc(nombreCorto(otroDe(activa)))} y tú ven estos mensajes (y los admins).`}</div>`;
     if (bajar) lista.scrollTop = lista.scrollHeight;
@@ -3076,8 +3086,10 @@ async function iniciarChat(s, ctx) {
   lista.onclick = async e => {
     const b = e.target.closest('[data-msg]');
     if (!b || !confirm('¿Borrar este mensaje?')) return;
+    const borrado = msgs.find(x => x.id === b.dataset.msg);
     const { error } = await sb.from('mensajes_evento').delete().eq('id', b.dataset.msg);
     if (error) return fallo(error, 'Chat');
+    if (borrado?.audio_ruta) sb.storage.from('notas-voz').remove([borrado.audio_ruta]);
     msgs = msgs.filter(x => x.id !== b.dataset.msg); pintar(false);
   };
   const ta = form.texto;
@@ -3139,6 +3151,8 @@ async function iniciarChat(s, ctx) {
   };
   form.onsubmit = async e => {
     e.preventDefault();
+    // con la grabación activa, el botón "Enviar" manda la nota de voz
+    if (form.classList.contains('grabando')) return parar(true);
     const texto = conTokens(ta.value.trim());
     if (!texto) return;
     const btn = form.querySelector('[type=submit]');
@@ -3156,6 +3170,82 @@ async function iniciarChat(s, ctx) {
     ta.value = ''; menMapa.clear(); ta.oninput();
     if (!msgs.some(x => x.id === data.id)) { msgs.push(data); pintarTabs(); pintar(); }
   };
+
+  // ----- notas de voz: 🎤 empieza a grabar, "Enviar" la manda, "Cancelar" la descarta -----
+  const mic = form.querySelector('[data-mic]'), grab = $('#chatGrab'), grabT = $('#grabT');
+  const MAX_SEG = 180;
+  let rec = null, flujo = null, trozos = [], inicio = 0, reloj = null, enviarAlParar = false;
+  const tipoAudio = () => {
+    if (typeof MediaRecorder === 'undefined') return null;
+    return ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'].find(t => MediaRecorder.isTypeSupported?.(t)) || '';
+  };
+  if (tipoAudio() === null || !navigator.mediaDevices?.getUserMedia) mic.hidden = true;
+  const modoGrabando = on => {
+    grab.hidden = !on; ta.hidden = on; mic.hidden = on;
+    form.querySelector('[data-at]').hidden = on || activa !== 'g';
+    form.classList.toggle('grabando', on);
+  };
+  const soltar = () => {
+    clearInterval(reloj); reloj = null;
+    flujo?.getTracks().forEach(t => t.stop()); flujo = null;
+    modoGrabando(false);
+  };
+  const parar = enviar => { enviarAlParar = enviar; if (rec && rec.state !== 'inactive') rec.stop(); else soltar(); };
+  st.limpiar.push(() => { enviarAlParar = false; if (rec && rec.state !== 'inactive') rec.stop(); soltar(); });
+  mic.onclick = async () => {
+    if (rec && rec.state === 'recording') return;
+    try {
+      flujo = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (err) {
+      return toast(err?.name === 'NotAllowedError' ? 'Permite el micrófono para grabar notas de voz' : 'No se pudo usar el micrófono', true);
+    }
+    const tipo = tipoAudio();
+    try { rec = tipo ? new MediaRecorder(flujo, { mimeType: tipo }) : new MediaRecorder(flujo); }
+    catch { soltar(); return toast('Este teléfono no permite grabar audio aquí', true); }
+    trozos = []; enviarAlParar = false;
+    rec.ondataavailable = ev => { if (ev.data?.size) trozos.push(ev.data); };
+    rec.onstop = () => {
+      const seg = Math.max(1, Math.round((Date.now() - inicio) / 1000));
+      const blob = new Blob(trozos, { type: (rec.mimeType || tipo || 'audio/webm').split(';')[0] });
+      soltar();
+      if (enviarAlParar && blob.size > 800) enviarNota(blob, seg);
+    };
+    rec.start(1000);
+    inicio = Date.now();
+    grabT.textContent = '0:00';
+    reloj = setInterval(() => {
+      const seg = Math.floor((Date.now() - inicio) / 1000);
+      grabT.textContent = fmtDur(seg);
+      if (seg >= MAX_SEG) { toast('Máximo 3 minutos por nota'); parar(true); }
+    }, 250);
+    modoGrabando(true);
+  };
+  grab.querySelector('[data-grab-cancelar]').onclick = () => parar(false);
+  async function enviarNota(blob, seg) {
+    const btn = form.querySelector('[type=submit]');
+    btn.disabled = true; mic.disabled = true;
+    const tipo = blob.type || 'audio/webm';
+    const ext = /mp4|m4a|aac/.test(tipo) ? 'm4a' : /ogg/.test(tipo) ? 'ogg' : /mpeg/.test(tipo) ? 'mp3' : 'webm';
+    const ruta = `${st.uid}/${s.id}/${(crypto.randomUUID?.() || Date.now() + '-' + Math.random().toString(36).slice(2))}.${ext}`;
+    toast('Enviando nota de voz…');
+    try {
+      const { error: eUp } = await sb.storage.from('notas-voz').upload(ruta, blob, { contentType: tipo });
+      if (eUp) {
+        if (/bucket|not found/i.test(eUp.message || '')) return toast(esAdmin() ? 'Ejecuta supabase/014_notas_voz.sql en Supabase' : 'Las notas de voz aún no están activadas', true);
+        return fallo(eUp, 'Nota de voz');
+      }
+      const fila = { setlist_id: s.id, autor_id: st.uid, texto: '🎤 Nota de voz', audio_ruta: ruta, audio_seg: Math.min(seg, 600),
+        audio_url: sb.storage.from('notas-voz').getPublicUrl(ruta).data.publicUrl };
+      if (activa !== 'g') fila.para_id = otroDe(activa);
+      const { data, error } = await sb.from('mensajes_evento').insert(fila).select().single();
+      if (error) {
+        sb.storage.from('notas-voz').remove([ruta]);
+        if (error.code === 'PGRST204' || /audio_/.test(error.message || '')) return toast(esAdmin() ? 'Ejecuta supabase/014_notas_voz.sql en Supabase' : 'Las notas de voz aún no están activadas', true);
+        return fallo(error, 'Chat');
+      }
+      if (ctx.vigente() && !msgs.some(x => x.id === data.id)) { msgs.push(data); pintarTabs(); pintar(); }
+    } finally { btn.disabled = false; mic.disabled = false; }
+  }
 }
 
 function modalPublicarDia(s) {

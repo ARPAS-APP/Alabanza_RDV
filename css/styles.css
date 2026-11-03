@@ -816,3 +816,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .7); }
 
 /* aviso de versión nueva de la app */
 .aviso-version { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + var(--safe-b)); z-index: 30; max-width: calc(100% - 32px); border: 0; border-radius: 999px; padding: 11px 18px; background: var(--acento); color: var(--acento-txt); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+
+/* ---- notas de voz en el chat ---- */
+.chat-mic { flex: none; width: 40px; height: 40px; font-size: 18px; }
+.chat-mic[hidden], .chat-grabando[hidden], .chat-form textarea[hidden] { display: none; }
+.chat-grabando { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 12px; border-radius: 12px; background: var(--card-2); }
+.chat-grabando .grab-punto { width: 10px; height: 10px; border-radius: 50%; background: var(--peligro); flex: none; animation: grabLatido 1s ease-in-out infinite; }
+.chat-grabando .grab-t { font-weight: 800; font-variant-numeric: tabular-nums; }
+.chat-grabando .grab-txt { flex: 1; min-width: 0; color: var(--texto-2); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes grabLatido { 50% { opacity: .3; } }
+.chat-msg .nota-voz { margin: 4px 0 2px; }
+.chat-msg .nota-voz audio { display: block; width: 240px; max-width: 100%; height: 40px; }
+.chat-msg .nota-pie { font-size: 12px; color: var(--texto-2); }
