@@ -41,6 +41,8 @@ Costo: **$0** (GitHub Pages + plan gratis de Supabase).
 
 13. `015_modulos_discipulado.sql` ⏳ **ejecutar**: módulos (Alabanza / Discipulado), accesos por módulo (`modulos_acceso`, `guardar_accesos`), y todo Discipulado (`disc_*`). Los aprobados actuales quedan en Alabanza automáticamente. Después publicar de nuevo la Edge Function `calendario` (ahora incluye mentorías).
 
+14. `016_disc_archivos_preguntas.sql` ⏳ **ejecutar** después de 015: fotos y PDFs en el muro de Discipulado (bucket `disc-archivos`, 10 MB), tipo Pregunta, mejor respuesta (`disc_marcar_mejor`) y preguntas anónimas (vistas `disc_muro` y `disc_comentarios_v` ocultan el autor; solo su mentor lo ve).
+
 No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 
 ## Permisos
@@ -84,6 +86,8 @@ No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 - **Mentorías:** el mentor agenda (con una persona o todo el grupo); el discípulo propone y el mentor acepta. Confirmar / No puedo. Van al calendario del celular.
 - **Panel del mentor:** racha, último devocional, próxima mentoría, alertas; ficha del discípulo con lo que compartió y **notas privadas que solo lee el mentor que las escribió** (ni pastor ni admin).
 - **Gestionar (pastor):** devocionales por fecha, retos, personas y accesos.
+- **Biblia** (`js/biblia.js`, `biblia/`): RV1909, BES, VBL y PDT (uso libre), lector por capítulo, versión preferida, compartir versículos. Las citas tipo "Juan 15:5" en muro, comentarios y devocionales se vuelven enlaces; RVR1960/NVI/NTV/LBLA/DHH se abren en Bible Gateway. Si el devocional solo tiene la cita, el texto sale de la Biblia.
+- **Muro:** fotos (se comprimen) y PDFs, hasta 6 por publicación; preguntas con respuesta marcada y opción anónima.
 - Notificaciones push de Discipulado: aún no.
 
 ## Pendientes / próximos pasos

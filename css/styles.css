@@ -1003,3 +1003,61 @@ body.mod-disc .m-cla { display: inline-block !important; }
 body.mod-disc .m-osc { display: none !important; }
 .auth .logo.logo-arpas.m-cla, .auth .logo.logo-arpas.m-osc { margin-left: auto; margin-right: auto; }
 .top img.m-osc, .top img.m-cla { object-fit: contain; }
+
+/* =====================================================================
+   DISCIPULADO · Biblia, citas, archivos y preguntas
+   ===================================================================== */
+.cita { display: inline; padding: 0; border: 0; background: none; font: inherit; color: var(--acento-2); font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+.d-hero .cita { color: var(--d-arena); }
+.d-pasaje-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.d-pasaje-btn { text-decoration: none; font-size: 13px; padding: 6px 10px; border-radius: 999px; background: var(--d-hero-linea); }
+.d-post-herr { flex-wrap: wrap; margin-top: 8px; }
+.d-post-herr > * { flex: 0 0 auto; }
+.d-subir { display: inline-flex; align-items: center; margin: 0; cursor: pointer; }
+.d-versbox { display: grid; gap: 8px; margin-top: 8px; padding: 12px; border-radius: 14px; background: var(--card-2); }
+.d-versbox .btn { justify-self: start; }
+.d-prev { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.d-prev:empty { display: none; }
+.d-prev-it { position: relative; display: grid; gap: 4px; justify-items: center; text-align: center; }
+.d-prev-it img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
+.d-prev-it small { font-size: 11px; color: var(--texto-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.d-prev-it .btn-ico { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; }
+.d-pdf-ico { display: grid; place-items: center; width: 44px; height: 52px; border-radius: 8px; background: var(--acento); color: var(--acento-txt); font-size: 12px; font-weight: 800; letter-spacing: .5px; flex: none; }
+.d-prev-it .d-pdf-ico { width: 100%; height: auto; aspect-ratio: 1; }
+.d-fotos { display: grid; gap: 4px; margin-top: 10px; border-radius: 14px; overflow: hidden; }
+.d-fotos.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.d-fotos.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.d-fotos img { width: 100%; display: block; max-height: 420px; object-fit: cover; }
+.d-fotos.n2 img, .d-fotos.n3 img { aspect-ratio: 1; }
+.d-pdf { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 10px; border-radius: 14px; border: 1px solid var(--linea); text-decoration: none; color: inherit; }
+.d-pdf .info { min-width: 0; display: grid; }
+.d-pdf .info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-pdf .info small { color: var(--texto-3); }
+.d-pregunta { border-color: color-mix(in srgb, var(--info) 45%, var(--linea)); }
+.tag.d-tipo-pregunta { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+.d-com.mejor { background: var(--d-salvia); border-radius: 12px; padding: 10px; }
+.d-mejor { display: block; font-size: 12px; font-weight: 700; color: var(--ok); margin-bottom: 2px; }
+.d-com .btn-link { margin-left: 6px; }
+.d-num-chip { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--peligro); color: #fff; font-size: 11px; }
+.d-vers { margin-bottom: 10px; }
+.d-cita-t { max-height: 46dvh; overflow-y: auto; line-height: 1.6; font-size: 16px; }
+.d-cita-t p { margin: 0 0 8px; }
+.d-cita-t sup, .d-v sup { color: var(--acento-2); font-weight: 700; font-size: 11px; }
+.d-ext { margin-top: 14px; display: grid; gap: 6px; }
+.d-ext small { color: var(--texto-3); font-size: 12px; }
+.d-ext-l { display: flex; flex-wrap: wrap; gap: 6px; }
+.d-ext-l .chip { text-decoration: none; }
+.d-libros { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.d-libro { padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--linea); color: var(--texto); text-decoration: none; font-size: 14px; font-weight: 600; }
+.d-caps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px; scrollbar-width: none; }
+.d-caps::-webkit-scrollbar { display: none; }
+.d-caps a { flex: none; min-width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: var(--card-2); color: var(--texto-2); text-decoration: none; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.d-caps a.activo { background: var(--acento); color: var(--acento-txt); }
+.d-capitulo { font-size: 17px; line-height: 1.75; }
+.d-v { display: inline; padding: 2px 1px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 4px; }
+.d-v.marcado { background: var(--d-arena-suave); }
+.d-v.sel { background: color-mix(in srgb, var(--acento) 22%, transparent); text-decoration: underline; text-decoration-color: var(--acento); }
+.d-selbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + var(--safe-b)); z-index: 20; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--d-hero); color: var(--d-hero-txt); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); max-width: calc(100% - 32px); }
+.d-selbar span { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.d-buscar .fila { align-items: center; }
+.d-pasaje blockquote sup { color: var(--d-arena); font-weight: 700; font-size: 11px; }

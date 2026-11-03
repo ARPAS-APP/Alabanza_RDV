@@ -4137,6 +4137,6 @@ async function pintarNotif() {
 // =====================================================================
 const disc = crearDiscipulado({
   sb, st, app, $, esc, toast, fallo, abrirModal, cerrarModal, ocupado, encabezado, iniciales, nombreDe, haceCuanto, conCache,
-  modalCalendario, modalAccesos, discRol, esAdmin, rutear,
+  modalCalendario, modalAccesos, discRol, esAdmin, rutear, comprimirImagen,
   recargarPerfiles: async () => { await cargarModulos(); await cargarPerfiles(); },
 });

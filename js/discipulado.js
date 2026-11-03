@@ -5,6 +5,8 @@
 // aquí solo se pide lo que cada persona puede ver.
 // =====================================================================
 
+import * as BIB from './biblia.js';
+
 const VIS = {
   yo:        { ico: '🔒', txt: 'Solo yo',    sub: 'Privado' },
   mentor:    { ico: '🤝', txt: 'Mi mentor',  sub: 'Solo tu mentor' },
@@ -13,6 +15,7 @@ const VIS = {
 };
 const TIPOS_POST = {
   reflexion:  { ico: '💭', txt: 'Reflexión' },
+  pregunta:   { ico: '❓', txt: 'Pregunta' },
   testimonio: { ico: '✨', txt: 'Testimonio' },
   oracion:    { ico: '🙏', txt: 'Petición de oración' },
   versiculo:  { ico: '📖', txt: 'Versículo' },
@@ -42,10 +45,12 @@ export function crearDiscipulado(api) {
     const n = Math.round((new Date(fechaPa() + 'T12:00:00Z') - new Date(f + 'T12:00:00Z')) / 86400e3);
     return n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`;
   };
-  const parrafos = t => esc(t || '').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  // Texto con las citas bíblicas convertidas en enlaces (Juan 15:5 → abre el versículo)
+  const txt = s => BIB.enlazarCitas(String(s ?? ''), esc).replace(/\n/g, '<br>');
+  const parrafos = t => String(t || '').split(/\n{2,}/).map(p => `<p>${txt(p)}</p>`).join('');
   const avatar = (id, cls = '') => `<span class="avatar sm d-av ${cls}">${esc(iniciales(nombreDe(id)))}</span>`;
   const vacio = (ico, txt) => `<div class="vacio"><span class="grande">${ico}</span>${txt}</div>`;
-  const esc1 = s => esc(s).replace(/\n/g, '<br>');
+  const esc1 = txt;
 
   // Estructura: quién es mentor de quién (se guarda un minuto)
   let est = null, estT = 0;
@@ -107,6 +112,8 @@ export function crearDiscipulado(api) {
       sb.from('disc_retos_part').select('reto_id, inicio, completado_at, reto:disc_retos(titulo, dias), marcas:disc_retos_marcas(fecha)').eq('perfil_id', st.uid).is('completado_at', null),
       misDiscipulos(e).length ? sb.rpc('disc_resumen') : Promise.resolve({ data: [] }),
     ]);
+    const preguntas = await preguntasSinResponder();
+    if (!ctx.vigente()) return;
     if (!ctx.vigente()) return;
     if (devs.error) return falta(devs.error);
     const hechos = new Set((resp.data || []).map(r => r.devocional_id));
@@ -124,6 +131,7 @@ export function crearDiscipulado(api) {
     const atencion = (resumen.data || []).filter(r => !r.ultimo || r.ultimo < sumarDias(hoyF, -6)).length;
     const pendientes = (api.esAdmin() || esPastor()) ? [...st.perfiles.values()].filter(p => p.estado === 'pendiente').length : 0;
 
+    app.onclick = ev => { if (ev.target.closest('[data-preguntas]')) filtroMuro = 'preguntas'; };
     app.innerHTML = cab(`Hola, ${nombre}`, { sub: fechaTxt(hoyF) }) + `
       ${pendientes ? `<a class="card d-aviso" href="#/d/personas"><b>🔑 ${pendientes} ${pendientes === 1 ? 'solicitud' : 'solicitudes'} de acceso</b><span>Revísalas cuando hayas conversado con cada persona ›</span></a>` : ''}
       <div class="d-hero">
@@ -146,11 +154,20 @@ export function crearDiscipulado(api) {
           ${reto ? `<b>${esc(reto.reto?.titulo || '')}</b>${barra(reto.marcas.length, reto.reto?.dias || 1)}<small>${reto.marcas.length} de ${reto.reto?.dias} días</small>` : '<b>Ninguno</b><small>Elige un reto nuevo</small>'}
         </a>
       </div>
+      <a class="item d-fila" href="#/d/biblia"><span class="d-mini-ico">📖</span><div class="info"><b>Biblia</b><small>${Object.keys(BIB.VERSIONES).length} versiones en español</small></div>›</a>
+      ${preguntas ? `<a class="item d-fila" href="#/d/muro" data-preguntas><span class="d-mini-ico">❓</span><div class="info"><b>${preguntas} ${preguntas === 1 ? 'pregunta' : 'preguntas'} sin responder</b><small>En el muro</small></div>›</a>` : ''}
       ${misDiscipulos(e).length ? `<a class="item d-fila" href="#/d/discipulos"><span class="d-mini-ico">🌱</span><div class="info"><b>Mis discípulos (${misDiscipulos(e).length})</b><small>${atencion ? `${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención` : 'Todos al día'}</small></div>›</a>` : ''}
       ${esPastor() ? `<a class="item d-fila" href="#/d/gestion"><span class="d-mini-ico">🛠️</span><div class="info"><b>Gestionar Discipulado</b><small>Devocionales, retos y personas</small></div>›</a>` : ''}
       ${!miMentor(e) && !misDiscipulos(e).length && !esPastor() ? '<p class="ayuda" style="text-align:center">Todavía no tienes mentor asignado. Quien te invitó te lo asignará pronto.</p>' : ''}`;
   }
 
+  // Preguntas del muro que nadie (aparte de quien preguntó) ha respondido
+  async function preguntasSinResponder() {
+    const { data, error } = await sb.from('disc_muro').select('id, autor_id, mio').eq('tipo', 'pregunta').order('created_at', { ascending: false }).limit(40);
+    if (error || !data?.length) return 0;
+    const { data: com } = await sb.from('disc_comentarios_v').select('post_id, autor_id').in('post_id', data.map(p => p.id));
+    return data.filter(p => !p.mio && !(com || []).some(c => c.post_id === p.id && c.autor_id && c.autor_id !== p.autor_id)).length;
+  }
   const barra = (n, total) => `<div class="d-barra"><i style="width:${Math.min(100, Math.round(100 * n / Math.max(1, total)))}%"></i></div>`;
 
   function falta(error) {
@@ -195,12 +212,22 @@ export function crearDiscipulado(api) {
     ]);
     if (!ctx.vigente()) return;
     const mentor = miMentor(e);
+    const citaDev = BIB.leerCita(dev.pasaje_ref || '');
+    let pasaje = dev.pasaje_texto, pasajeVer = '';
+    if (!pasaje && citaDev) {
+      try {
+        const vs = await BIB.versiculos(BIB.preferida(), citaDev.v1 ? citaDev : { ...citaDev, v1: 1, v2: null });
+        pasaje = vs; pasajeVer = BIB.VERSIONES[BIB.preferida()].corto;
+      } catch {}
+      if (!ctx.vigente()) return;
+    }
     const ops = opcionesVis(e, ['yo', 'mentor', 'grupo', 'comunidad']);
     let vis = mia ? (mia.visibilidad === 'grupo' ? 'grupo:' + mia.grupo_id : mia.visibilidad) : (mentor ? 'mentor' : 'yo');
     if (!ops.some(o => o.k === vis && !o.off)) vis = 'yo';
 
     app.innerHTML = cab(dev.titulo, { sub: (dev.serie ? dev.serie + ' · ' : '') + fechaTxt(dev.fecha, { weekday: 'long', day: 'numeric', month: 'short' }), atras: fecha !== hoyF ? '#/d/devocional' : null }) + `
-      ${dev.pasaje_texto || dev.pasaje_ref ? `<div class="d-hero d-pasaje"><span class="d-eti">Lee</span>${dev.pasaje_texto ? `<blockquote>${esc1(dev.pasaje_texto)}</blockquote>` : ''}${dev.pasaje_ref ? `<small>${esc(dev.pasaje_ref)}</small>` : ''}</div>` : ''}
+      ${pasaje || dev.pasaje_ref ? `<div class="d-hero d-pasaje"><span class="d-eti">Lee</span>${pasaje ? `<blockquote>${Array.isArray(pasaje) ? pasaje.map(v => (pasaje.length > 1 ? `<sup>${v.n}</sup> ` : '') + esc(v.t)).join(' ') : esc(pasaje).replace(/\n/g, '<br>')}</blockquote>` : ''}
+        ${dev.pasaje_ref ? `<div class="d-pasaje-pie"><small>${esc(dev.pasaje_ref)}${pasajeVer ? ' · ' + pasajeVer : ''}</small>${citaDev ? `<button type="button" class="cita d-pasaje-btn" data-cita="${BIB.citaClave(citaDev)}">📖 Otras versiones</button>` : ''}</div>` : ''}</div>` : ''}
       ${dev.reflexion ? `<div class="card d-bloque"><span class="d-eti">Reflexiona</span>${parrafos(dev.reflexion)}</div>` : ''}
       ${dev.aplicacion ? `<div class="card d-bloque d-aplica"><span class="d-eti">Aplica hoy</span>${parrafos(dev.aplicacion)}</div>` : ''}
       <form id="fResp" class="card">
@@ -243,45 +270,93 @@ export function crearDiscipulado(api) {
   // MURO
   // ===================================================================
   let filtroMuro = 'todo';
+  const BUCKET = 'disc-archivos';
+
+  // Lee el muro con los nombres ocultos donde corresponde (016). Si aún no se ejecutó 016, usa la tabla.
+  async function leerMuro() {
+    let r = await sb.from('disc_muro').select('*').order('created_at', { ascending: false }).limit(60);
+    let vista = true;
+    if (r.error && /disc_muro|PGRST205|42P01|relation/i.test((r.error.message || '') + r.error.code)) {
+      vista = false;
+      r = await sb.from('disc_posts').select('*').order('created_at', { ascending: false }).limit(60);
+    }
+    if (r.error) return { error: r.error };
+    const posts = (r.data || []).map(p => ({ adjuntos: [], anonimo: false, mejor_id: null, mio: p.autor_id === st.uid, ...p }));
+    const ids = posts.map(p => p.id);
+    const [reac, com] = ids.length ? await Promise.all([
+      sb.from('disc_reacciones').select('post_id, perfil_id, tipo').in('post_id', ids),
+      sb.from(vista ? 'disc_comentarios_v' : 'disc_comentarios').select('*').in('post_id', ids).order('created_at'),
+    ]) : [{ data: [] }, { data: [] }];
+    for (const p of posts) {
+      p.reac = (reac.data || []).filter(x => x.post_id === p.id);
+      p.com = (com.data || []).filter(x => x.post_id === p.id).map(c => ({ mio: c.autor_id === st.uid, ...c }));
+    }
+    return { posts, vista };
+  }
+
+  const urlArchivo = ruta => sb.storage.from(BUCKET).getPublicUrl(ruta).data.publicUrl;
+  const pesoTxt = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+  function htmlAdjuntos(lista) {
+    if (!lista?.length) return '';
+    const imgs = lista.filter(a => a.tipo === 'imagen'), pdfs = lista.filter(a => a.tipo === 'pdf');
+    return `${imgs.length ? `<div class="d-fotos n${Math.min(imgs.length, 3)}">${imgs.map(a => `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.nombre || 'Foto')}" loading="lazy"></a>`).join('')}</div>` : ''}
+      ${pdfs.map(a => `<a class="d-pdf" href="${esc(a.url)}" target="_blank" rel="noopener"><span class="d-pdf-ico">PDF</span><span class="info"><b>${esc(a.nombre || 'Documento')}</b><small>${esc(pesoTxt(a.tam || 0))} · Toca para abrir</small></span></a>`).join('')}`;
+  }
+  const nombreAutor = p => (p.autor_id ? nombreDe(p.autor_id) : p.tipo === 'pregunta' ? 'Pregunta anónima' : 'Alguien');
+  const avatarAutor = p => (p.autor_id ? avatar(p.autor_id) : '<span class="avatar sm d-av" aria-hidden="true">?</span>');
+
   async function vistaMuro(ctx) {
     cargando('Muro');
     const e = await estructura();
-    const { data: posts, error } = await sb.from('disc_posts')
-      .select('*, reac:disc_reacciones(perfil_id, tipo), com:disc_comentarios(id, autor_id, texto, created_at)')
-      .order('created_at', { ascending: false }).limit(60);
+    const { posts, error } = await leerMuro();
     if (!ctx.vigente()) return;
     if (error) return falta(error);
     const grupos = gruposDe(e);
     const abiertos = vistaMuro._abiertos || (vistaMuro._abiertos = new Set());
+    // Puede marcar la mejor respuesta: quien preguntó, su mentor o quien administra
+    const puedeMarcar = p => p.tipo === 'pregunta' && (p.mio || esPastor() || (p.autor_id && e.mentorDe.get(p.autor_id) === st.uid));
+    // Sin responder: nadie más que quien preguntó ha comentado
+    const sinResponder = p => p.tipo === 'pregunta' && !p.com.some(c => c.autor_id && c.autor_id !== p.autor_id);
+    const filtros = [['todo', 'Todo'], ['comunidad', '🌍 Comunidad'], ...(grupos.length ? [['grupo', grupos.length > 1 ? '👥 Grupos' : '👥 Mi grupo']] : []),
+      ['preguntas', '❓ Preguntas'], ...(misDiscipulos(e).length ? [['mentor', '🤝 Para mí']] : [])];
     const pinta = () => {
-      const lista = (posts || []).filter(p => filtroMuro === 'todo' || (filtroMuro === 'grupo' ? p.visibilidad === 'grupo' : filtroMuro === 'mentor' ? p.visibilidad === 'mentor' : p.visibilidad === 'comunidad'));
-      app.innerHTML = cab('Muro', { sub: 'Discipulado', derecha: '' }) + `
-        <div class="segmentado" id="segMuro">${[['todo', 'Todo'], ['comunidad', '🌍 Comunidad'], ...(grupos.length ? [['grupo', grupos.length > 1 ? '👥 Grupos' : '👥 Mi grupo']] : []), ...(misDiscipulos(e).length ? [['mentor', '🤝 Para mí']] : [])]
-          .map(([k, v]) => `<button type="button" data-f="${k}" class="${filtroMuro === k ? 'activo' : ''}">${v}</button>`).join('')}</div>
+      const lista = posts.filter(p => filtroMuro === 'todo' || (filtroMuro === 'preguntas' ? p.tipo === 'pregunta' : filtroMuro === 'grupo' ? p.visibilidad === 'grupo' : filtroMuro === 'mentor' ? p.visibilidad === 'mentor' : p.visibilidad === 'comunidad'));
+      const pend = posts.filter(p => sinResponder(p) && !p.mio).length;
+      app.innerHTML = cab('Muro', { sub: 'Discipulado' }) + `
+        <div class="segmentado" id="segMuro">${filtros.map(([k, v]) => `<button type="button" data-f="${k}" class="${filtroMuro === k ? 'activo' : ''}">${v}${k === 'preguntas' && pend ? ` <b class="d-num-chip">${pend}</b>` : ''}</button>`).join('')}</div>
         ${filtroMuro === 'grupo' ? `<p class="ayuda d-candado">🔒 Solo lo ven los de cada grupo: ${grupos.map(g => esc(g.sub)).join(' · ')}.</p>` : ''}
         ${filtroMuro === 'mentor' ? '<p class="ayuda d-candado">🔒 Lo que tus discípulos compartieron solo contigo.</p>' : ''}
-        <div class="lista">${lista.length ? lista.map(p => tarjeta(p)).join('') : vacio('🌱', 'Todavía no hay publicaciones aquí. ¡Comparte la primera!')}</div>
+        ${filtroMuro === 'preguntas' ? '<p class="ayuda d-candado">Pregunta lo que quieras. Puedes hacerlo sin que se vea tu nombre: solo tu mentor sabrá que fuiste tú.</p>' : ''}
+        <div class="lista">${lista.length ? lista.map(p => tarjeta(p)).join('') : vacio(filtroMuro === 'preguntas' ? '❓' : '🌱', filtroMuro === 'preguntas' ? 'Todavía no hay preguntas. Toca ＋ para hacer la primera.' : 'Todavía no hay publicaciones aquí. Comparte la primera.')}</div>
         <button class="fab" id="fabPost" aria-label="Compartir">＋</button>`;
     };
     const tarjeta = p => {
       const t = TIPOS_POST[p.tipo] || TIPOS_POST.reflexion;
       const n = k => p.reac.filter(r => r.tipo === k).length;
       const mia = k => p.reac.some(r => r.tipo === k && r.perfil_id === st.uid);
-      const com = [...(p.com || [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
-      const ab = abiertos.has(p.id);
-      return `<article class="card d-post" data-id="${p.id}">
-        <div class="d-post-h">${avatar(p.autor_id)}<div class="info"><b>${esc(nombreDe(p.autor_id))}</b><small>${esc(haceCuanto(p.created_at))} · ${visDe(p).ico} ${esc(visDe(p).txt)}</small></div>
-          ${p.autor_id === st.uid || (esPastor() && p.visibilidad === 'comunidad') ? `<button class="btn-ico sm" data-acc="borrar" aria-label="Borrar publicación">🗑</button>` : ''}</div>
-        <span class="tag d-tipo-${p.tipo} d-tipo">${t.ico} ${t.txt}</span>
-        <div class="d-post-t">${esc1(p.texto)}</div>
+      let com = p.com;
+      if (p.mejor_id) com = [...com.filter(c => c.id === p.mejor_id), ...com.filter(c => c.id !== p.mejor_id)];
+      const ab = abiertos.has(p.id) || (p.tipo === 'pregunta' && com.length > 0 && com.length <= 3);
+      const marcar = puedeMarcar(p);
+      const quien = c => (c.autor_id ? nombreDe(c.autor_id) : 'Quien preguntó');
+      return `<article class="card d-post ${p.tipo === 'pregunta' ? 'd-pregunta' : ''}" data-id="${p.id}">
+        <div class="d-post-h">${avatarAutor(p)}<div class="info"><b>${esc(nombreAutor(p))}${p.anonimo && p.autor_id ? ' <span class="tag">Anónima para los demás</span>' : ''}</b><small>${esc(haceCuanto(p.created_at))} · ${visDe(p).ico} ${esc(visDe(p).txt)}</small></div>
+          ${p.mio || (esPastor() && p.visibilidad === 'comunidad') ? `<button class="btn-ico sm" data-acc="borrar" aria-label="Borrar publicación">🗑</button>` : ''}</div>
+        <span class="tag d-tipo-${p.tipo} d-tipo">${t.ico} ${t.txt}${p.tipo === 'pregunta' ? (p.mejor_id ? ' · respondida ✓' : sinResponder(p) ? ' · sin responder' : '') : ''}</span>
+        <div class="d-post-t">${txt(p.texto)}</div>
+        ${htmlAdjuntos(p.adjuntos)}
         <div class="reacciones">
           <button class="reac ${mia('orando') ? 'mia' : ''}" data-acc="reac" data-t="orando" aria-pressed="${mia('orando')}">🙏 Orando <small>${n('orando') || ''}</small></button>
           <button class="reac ${mia('amen') ? 'mia' : ''}" data-acc="reac" data-t="amen" aria-pressed="${mia('amen')}">🙌 Amén <small>${n('amen') || ''}</small></button>
-          <button class="reac" data-acc="com" aria-expanded="${ab}">💬 <small>${com.length || ''}</small></button>
+          <button class="reac" data-acc="com" aria-expanded="${ab}">💬 ${p.tipo === 'pregunta' ? 'Responder' : ''} <small>${com.length || ''}</small></button>
         </div>
-        ${ab ? `<div class="d-coms">${com.map(c => `<div class="d-com"><b>${esc(nombreDe(c.autor_id))}</b> ${esc1(c.texto)} <small>${esc(haceCuanto(c.created_at))}</small>
-            ${c.autor_id === st.uid || esPastor() ? `<button class="btn-link" data-acc="borrarCom" data-c="${c.id}">Borrar</button>` : ''}</div>`).join('')}
-          <form class="d-com-f" data-acc="comentar"><input name="t" maxlength="2000" placeholder="Escribe un comentario…" aria-label="Comentario" autocomplete="off"><button class="btn sm prim">Enviar</button></form></div>` : ''}
+        ${ab ? `<div class="d-coms">${com.map(c => `<div class="d-com ${c.id === p.mejor_id ? 'mejor' : ''}">
+            ${c.id === p.mejor_id ? '<span class="d-mejor">✓ Mejor respuesta</span>' : ''}
+            <b>${esc(quien(c))}</b> ${txt(c.texto)} <small>${esc(haceCuanto(c.created_at))}</small>
+            ${marcar && c.id !== p.mejor_id && c.autor_id && c.autor_id !== p.autor_id ? `<button class="btn-link" data-acc="mejor" data-c="${c.id}">Marcar como mejor</button>` : ''}
+            ${marcar && c.id === p.mejor_id ? `<button class="btn-link" data-acc="mejor" data-c="">Quitar marca</button>` : ''}
+            ${c.mio || esPastor() ? `<button class="btn-link" data-acc="borrarCom" data-c="${c.id}">Borrar</button>` : ''}</div>`).join('')}
+          <form class="d-com-f" data-acc="comentar"><input name="t" maxlength="2000" placeholder="${p.tipo === 'pregunta' ? 'Escribe tu respuesta…' : 'Escribe un comentario…'}" aria-label="Comentario" autocomplete="off"><button class="btn sm prim">Enviar</button></form></div>` : ''}
       </article>`;
     };
     pinta();
@@ -290,7 +365,7 @@ export function crearDiscipulado(api) {
     app.onclick = async ev => {
       const f = ev.target.closest('[data-f]');
       if (f) { filtroMuro = f.dataset.f; pinta(); return; }
-      if (ev.target.closest('#fabPost')) return modalPost(e, recargar);
+      if (ev.target.closest('#fabPost')) return modalPost(e, recargar, { tipo: filtroMuro === 'preguntas' ? 'pregunta' : null });
       const b = ev.target.closest('[data-acc]');
       if (!b || b.tagName === 'FORM') return;
       const card = b.closest('[data-id]'), id = card?.dataset.id, p = posts.find(x => x.id === id);
@@ -308,15 +383,24 @@ export function crearDiscipulado(api) {
         abiertos.has(id) ? abiertos.delete(id) : abiertos.add(id);
         card.outerHTML = tarjeta(p);
         $(`[data-id="${id}"] input`)?.focus();
+      } else if (b.dataset.acc === 'mejor') {
+        const { error } = await sb.rpc('disc_marcar_mejor', { p_post: id, p_com: b.dataset.c || null });
+        if (error) return fallo(error, 'Mejor respuesta');
+        p.mejor_id = b.dataset.c || null;
+        card.outerHTML = tarjeta(p);
+        toast(p.mejor_id ? 'Marcada como mejor respuesta' : 'Marca quitada');
       } else if (b.dataset.acc === 'borrar') {
         if (!confirm('¿Borrar esta publicación?')) return;
         const { error } = await sb.from('disc_posts').delete().eq('id', id);
         if (error) return fallo(error, 'Borrar');
+        const rutas = (p.adjuntos || []).map(a => a.ruta).filter(Boolean);
+        if (rutas.length && p.mio) sb.storage.from(BUCKET).remove(rutas);
         toast('Publicación borrada'); recargar();
       } else if (b.dataset.acc === 'borrarCom') {
         const { error } = await sb.from('disc_comentarios').delete().eq('id', b.dataset.c);
         if (error) return fallo(error, 'Borrar');
         p.com = p.com.filter(c => c.id !== b.dataset.c);
+        if (p.mejor_id === b.dataset.c) p.mejor_id = null;
         card.outerHTML = tarjeta(p);
       }
     };
@@ -328,9 +412,10 @@ export function crearDiscipulado(api) {
       const texto = fm.t.value.trim();
       if (!texto) return;
       fm.querySelector('button').disabled = true;
-      const { data, error } = await sb.from('disc_comentarios').insert({ post_id: p.id, autor_id: st.uid, texto }).select().single();
+      const { data, error } = await sb.from('disc_comentarios').insert({ post_id: p.id, autor_id: st.uid, texto }).select('id, post_id, texto, created_at').single();
       if (error) { fm.querySelector('button').disabled = false; return fallo(error, 'Comentario'); }
-      p.com = [...(p.com || []), data];
+      p.com = [...p.com, { ...data, autor_id: p.anonimo && p.mio ? null : st.uid, mio: true }];
+      abiertos.add(p.id);
       card.outerHTML = tarjeta(p);
     };
 
@@ -348,26 +433,89 @@ export function crearDiscipulado(api) {
     st.limpiar.push(() => { sb.removeChannel(canal); $('#avisoMuro')?.remove(); app.onsubmit = null; });
   }
 
-  function modalPost(e, alGuardar) {
+  // Compartir en el muro: tipo, texto, versículo, fotos o PDFs, y quién lo ve
+  async function modalPost(e, alGuardar, { tipo = null, texto = '' } = {}) {
+    if (!e) e = await estructura();
     const mentor = miMentor(e);
     const puedeAnunciar = misDiscipulos(e).length || esPastor();
     const ops = opcionesVis(e, ['comunidad', 'grupo', 'mentor']);
     let vis = 'comunidad';
+    const archivos = [];   // { file, tipo, nombre, url (vista previa) }
     const body = abrirModal('Compartir', `
       <form id="fPost">
-        <label style="margin-top:0">Tipo</label>
-        <select name="tipo">${Object.entries(TIPOS_POST).filter(([k]) => k !== 'logro' && (k !== 'anuncio' || puedeAnunciar)).map(([k, v]) => `<option value="${k}">${v.ico} ${v.txt}</option>`).join('')}</select>
-        <label>Mensaje</label><textarea name="texto" maxlength="4000" required placeholder="Comparte lo que Dios está haciendo, un versículo o una petición…"></textarea>
+        <label style="margin-top:0" for="pTipo">Tipo</label>
+        <select name="tipo" id="pTipo">${Object.entries(TIPOS_POST).filter(([k]) => k !== 'logro' && (k !== 'anuncio' || puedeAnunciar)).map(([k, v]) => `<option value="${k}" ${k === tipo ? 'selected' : ''}>${v.ico} ${v.txt}</option>`).join('')}</select>
+        <label for="pTexto">Mensaje</label><textarea name="texto" id="pTexto" maxlength="4000" required placeholder="Comparte lo que Dios está haciendo, una pregunta, un versículo o una petición…">${esc(texto)}</textarea>
+        <div class="fila d-post-herr">
+          <button type="button" class="btn sm" id="pVers" aria-expanded="false">📖 Insertar versículo</button>
+          <label class="btn sm d-subir" for="pArch">📎 Foto o PDF</label>
+          <input type="file" id="pArch" accept="image/*,application/pdf" multiple class="sr">
+        </div>
+        <div id="pVersBox" class="d-versbox" hidden>
+          <div class="fila"><input id="pCita" placeholder="Ej. Juan 15:5 o Salmo 23:1-3" aria-label="Cita bíblica" autocomplete="off">
+            <select id="pCitaVer" aria-label="Versión" style="flex:0 0 112px">${Object.entries(BIB.VERSIONES).map(([k, v]) => `<option value="${k}" ${k === BIB.preferida() ? 'selected' : ''}>${v.corto}</option>`).join('')}</select></div>
+          <div id="pCitaPrev" class="ayuda"></div>
+          <button type="button" class="btn sm prim" id="pCitaOk" disabled>Insertar</button>
+        </div>
+        <p class="ayuda" style="margin-top:4px">Las citas como <b>Juan 15:5</b> se convierten solas en enlace al versículo.</p>
+        <div id="pPrev" class="d-prev"></div>
+        <label class="check" id="pAnonBox" ${tipo === 'pregunta' ? '' : 'hidden'}><input type="checkbox" id="pAnon"> Preguntar sin mostrar mi nombre (solo mi mentor sabrá que fui yo)</label>
         <label>¿Quién puede verlo?</label>
         <div class="d-vis" id="pVis">${botonesVis(ops, vis)}</div>
         <button class="btn prim blk">Publicar</button>
       </form>`);
+    const prev = () => {
+      $('#pPrev', body).innerHTML = archivos.map((a, i) => `<div class="d-prev-it">${a.tipo === 'imagen' ? `<img src="${a.url}" alt="">` : '<span class="d-pdf-ico">PDF</span>'}
+        <small>${esc(a.nombre)}</small><button type="button" class="btn-ico sm" data-quitar="${i}" aria-label="Quitar ${esc(a.nombre)}">×</button></div>`).join('');
+    };
+    $('#pPrev', body).onclick = ev => {
+      const q = ev.target.closest('[data-quitar]'); if (!q) return;
+      const [a] = archivos.splice(+q.dataset.quitar, 1); if (a.url) URL.revokeObjectURL(a.url); prev();
+    };
+    $('#pArch', body).onchange = ev => {
+      for (const f of ev.target.files) {
+        if (archivos.length >= 6) { toast('Máximo 6 archivos por publicación', true); break; }
+        const pdf = f.type === 'application/pdf';
+        if (!pdf && !f.type.startsWith('image/')) { toast(`${f.name}: solo fotos o PDF`, true); continue; }
+        if (pdf && f.size > 10 * 1048576) { toast(`${f.name} pesa más de 10 MB`, true); continue; }
+        archivos.push({ file: f, tipo: pdf ? 'pdf' : 'imagen', nombre: f.name, url: pdf ? null : URL.createObjectURL(f) });
+      }
+      ev.target.value = ''; prev();
+    };
+    // Insertar versículo: se escribe la cita, se ve el texto y se agrega al mensaje
+    let citaLista = null;
+    $('#pVers', body).onclick = ev => {
+      const box = $('#pVersBox', body); box.hidden = !box.hidden; ev.currentTarget.setAttribute('aria-expanded', !box.hidden);
+      if (!box.hidden) $('#pCita', body).focus();
+    };
+    const verCita = async () => {
+      const c = BIB.leerCita($('#pCita', body).value), ver = $('#pCitaVer', body).value;
+      citaLista = null; $('#pCitaOk', body).disabled = true;
+      if (!c) { $('#pCitaPrev', body).textContent = $('#pCita', body).value.trim() ? 'Escribe libro, capítulo y versículo. Ej. Juan 15:5' : ''; return; }
+      if (!c.v1) c.v1 = 1;
+      try {
+        const vs = await BIB.versiculos(ver, c);
+        if (!vs.length) { $('#pCitaPrev', body).textContent = 'Ese versículo no existe.'; return; }
+        citaLista = `«${vs.map(v => v.t).join(' ')}» ${BIB.citaTxt(c)} (${BIB.VERSIONES[ver].corto})`;
+        $('#pCitaPrev', body).textContent = citaLista;
+        $('#pCitaOk', body).disabled = false;
+      } catch { $('#pCitaPrev', body).textContent = 'No se pudo cargar el texto. Revisa tu conexión.'; }
+    };
+    $('#pCita', body).oninput = verCita; $('#pCitaVer', body).onchange = verCita;
+    $('#pCitaOk', body).onclick = () => {
+      if (!citaLista) return;
+      const ta = $('#pTexto', body), antes = ta.value.trim();
+      ta.value = (antes ? antes + '\n\n' : '') + citaLista;
+      if ($('#pTipo', body).value === 'reflexion' && !antes) $('#pTipo', body).value = 'versiculo';
+      $('#pCita', body).value = ''; $('#pCitaPrev', body).textContent = ''; $('#pCitaOk', body).disabled = true; $('#pVersBox', body).hidden = true;
+    };
     $('#pVis', body).onclick = ev => {
       const b = ev.target.closest('[data-vis]'); if (!b || b.disabled) return;
       vis = b.dataset.vis;
       $('#pVis', body).querySelectorAll('button').forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-pressed', x === b); });
     };
-    $('[name=tipo]', body).onchange = ev => {
+    $('#pTipo', body).onchange = ev => {
+      $('#pAnonBox', body).hidden = ev.target.value !== 'pregunta';
       // Las peticiones de oración se sugieren privadas, pero la persona decide
       if (ev.target.value === 'oracion' && mentor && vis === 'comunidad') $('#pVis [data-vis="mentor"]', body)?.click();
     };
@@ -375,8 +523,27 @@ export function crearDiscipulado(api) {
       ev.preventDefault();
       const f = Object.fromEntries(new FormData(ev.target));
       ocupado(ev.target.querySelector('button.prim'), async () => {
-        const { error } = await sb.from('disc_posts').insert({ autor_id: st.uid, tipo: f.tipo, texto: f.texto.trim(), ...partirVis(vis) });
-        if (error) return fallo(error, 'Publicar');
+        const adjuntos = [];
+        for (const a of archivos) {
+          const blob = a.tipo === 'imagen' ? await api.comprimirImagen(a.file, 1600, 0.82) : a.file;
+          const ext = a.tipo === 'pdf' ? 'pdf' : (blob.type === 'image/png' ? 'png' : blob.type === 'image/gif' ? 'gif' : blob.type === 'image/webp' ? 'webp' : 'jpg');
+          const ruta = `${st.uid}/${crypto.randomUUID()}.${ext}`;
+          const { error } = await sb.storage.from(BUCKET).upload(ruta, blob, { contentType: a.tipo === 'pdf' ? 'application/pdf' : (blob.type || 'image/jpeg') });
+          if (error) {
+            if (adjuntos.length) sb.storage.from(BUCKET).remove(adjuntos.map(x => x.ruta));
+            return fallo(/bucket|not found/i.test(error.message) ? { message: 'falta ejecutar 016_disc_archivos_preguntas.sql en Supabase' } : error, `Subir ${a.nombre}`);
+          }
+          adjuntos.push({ tipo: a.tipo, ruta, url: urlArchivo(ruta), nombre: a.nombre, tam: blob.size });
+        }
+        const fila = { autor_id: st.uid, tipo: f.tipo, texto: f.texto.trim(), ...partirVis(vis) };
+        if (adjuntos.length) fila.adjuntos = adjuntos;
+        if (f.tipo === 'pregunta' && $('#pAnon', body).checked) fila.anonimo = true;
+        const { error } = await sb.from('disc_posts').insert(fila);
+        if (error) {
+          if (adjuntos.length) sb.storage.from(BUCKET).remove(adjuntos.map(x => x.ruta));
+          return fallo(/adjuntos|anonimo|tipo_check/i.test(error.message) ? { message: 'falta ejecutar 016_disc_archivos_preguntas.sql en Supabase' } : error, 'Publicar');
+        }
+        archivos.forEach(a => a.url && URL.revokeObjectURL(a.url));
         cerrarModal(); toast('Publicado'); alGuardar();
       });
     };
@@ -637,7 +804,7 @@ export function crearDiscipulado(api) {
       <div class="seccion-t">Devocionales que compartió contigo</div>
       ${(resp.data || []).length ? (resp.data || []).map(x => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${esc(x.dev?.titulo || '')}</b><small>${esc(haceCuanto(x.created_at))}</small></div><span class="tag">${visDe(x).ico} ${esc(visDe(x).txt)}</span></div><div class="d-post-t">${esc1(x.texto)}</div></div>`).join('') : '<p class="ayuda">Todavía no ha compartido respuestas contigo.</p>'}
       <div class="seccion-t">Peticiones y mensajes para ti o el grupo</div>
-      ${(posts.data || []).length ? (posts.data || []).map(p => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${TIPOS_POST[p.tipo]?.ico || ''} ${esc(TIPOS_POST[p.tipo]?.txt || '')}</b><small>${esc(haceCuanto(p.created_at))}</small></div><span class="tag">${visDe(p).ico} ${esc(visDe(p).txt)}</span></div><div class="d-post-t">${esc1(p.texto)}</div></div>`).join('') : '<p class="ayuda">Nada por ahora.</p>'}
+      ${(posts.data || []).length ? (posts.data || []).map(p => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${TIPOS_POST[p.tipo]?.ico || ''} ${esc(TIPOS_POST[p.tipo]?.txt || '')}</b><small>${esc(haceCuanto(p.created_at))}</small></div><span class="tag">${visDe(p).ico} ${esc(visDe(p).txt)}</span></div><div class="d-post-t">${esc1(p.texto)}</div>${htmlAdjuntos(p.adjuntos)}</div>`).join('') : '<p class="ayuda">Nada por ahora.</p>'}
       <div class="seccion-t">Retos</div>
       ${(retos.data || []).length ? `<div class="lista">${retos.data.filter(x => x.reto).map(x => `<div class="item" style="cursor:default"><span class="d-chk ${x.completado_at ? 'si' : ''}">${x.completado_at ? '✓' : ''}</span><div class="info"><b>${esc(x.reto.titulo)}</b><small>${x.marcas.length} de ${x.reto.dias} días</small></div></div>`).join('')}</div>` : '<p class="ayuda">No se ha unido a ningún reto.</p>'}`;
 
@@ -714,13 +881,24 @@ export function crearDiscipulado(api) {
           <div><label style="margin-top:0">Serie (opcional)</label><input name="serie" maxlength="80" value="${esc(d?.serie || '')}" placeholder="Ej. Permanecer"></div></div>
         <label>Título</label><input name="titulo" required maxlength="120" value="${esc(d?.titulo || '')}">
         <label>Pasaje (cita)</label><input name="pasaje_ref" maxlength="120" value="${esc(d?.pasaje_ref || '')}" placeholder="Ej. Juan 15:1-8">
-        <label>Texto del pasaje</label><textarea name="pasaje_texto" maxlength="4000" placeholder="Pega el texto. Reina-Valera 1909 es de dominio público.">${esc(d?.pasaje_texto || '')}</textarea>
+        <div class="fila" style="align-items:center;margin-top:8px"><span class="ayuda" style="margin:0">Si dejas el texto vacío, sale solo de la Biblia en la versión que cada persona prefiera.</span>
+          <button type="button" class="btn sm" id="bTraer" style="flex:0 0 auto">📖 Traer texto</button></div>
+        <label>Texto del pasaje (opcional)</label><textarea name="pasaje_texto" maxlength="4000" placeholder="Opcional">${esc(d?.pasaje_texto || '')}</textarea>
         <label>Reflexión</label><textarea name="reflexion" maxlength="6000">${esc(d?.reflexion || '')}</textarea>
         <label>Aplica hoy</label><textarea name="aplicacion" maxlength="2000" style="min-height:60px">${esc(d?.aplicacion || '')}</textarea>
         <label>Pregunta para responder</label><input name="pregunta" maxlength="300" value="${esc(d?.pregunta || '')}" placeholder="Ej. ¿Qué área de tu vida intentas sostener sola?">
         <button class="btn prim blk">${d ? 'Guardar' : 'Publicar'}</button>
         ${d ? '<button type="button" class="btn peligro blk" id="bBorrarDev">Borrar devocional</button>' : ''}
       </form>`);
+    $('#bTraer', body).onclick = async () => {
+      const c = BIB.leerCita($('[name=pasaje_ref]', body).value);
+      if (!c) return toast('Escribe primero la cita. Ej. Juan 15:1-8', true);
+      try {
+        const vs = await BIB.versiculos('rv1909', c.v1 ? c : { ...c, v1: 1 });
+        $('[name=pasaje_texto]', body).value = vs.map(v => (vs.length > 1 ? v.n + ' ' : '') + v.t).join(' ');
+        toast('Texto de Reina-Valera 1909');
+      } catch { toast('No se pudo cargar el texto', true); }
+    };
     $('#fDev', body).onsubmit = ev => {
       ev.preventDefault();
       const f = Object.fromEntries(new FormData(ev.target));
@@ -807,13 +985,117 @@ export function crearDiscipulado(api) {
   }
 
   // ===================================================================
+  // BIBLIA
+  // ===================================================================
+  const enlacesExternos = c => `<div class="d-ext"><small>Otras versiones (se abren en Bible Gateway):</small>
+    <div class="d-ext-l">${BIB.EXTERNAS.map(([v, t]) => `<a class="chip" href="${esc(BIB.urlGateway(c, v))}" target="_blank" rel="noopener">${t}</a>`).join('')}</div></div>`;
+  const chipsVersion = (sel, attr = 'data-ver') => `<div class="segmentado d-vers">${Object.entries(BIB.VERSIONES).map(([k, v]) =>
+    `<button type="button" ${attr}="${k}" class="${k === sel ? 'activo' : ''}" title="${esc(v.nombre)}">${v.corto}</button>`).join('')}</div>`;
+
+  // Ventana con el texto de una cita (al tocar "Juan 15:5" en cualquier parte)
+  async function modalCita(c) {
+    if (!c) return;
+    let ver = BIB.preferida();
+    const body = abrirModal(BIB.citaTxt(c), '<div class="spinner"></div>');
+    const pinta = async () => {
+      let vs = [];
+      try { vs = await BIB.versiculos(ver, c); } catch { body.querySelector('.d-cita-t').innerHTML = '<p class="ayuda">No se pudo cargar el texto. Revisa tu conexión.</p>'; return; }
+      const cuerpo = vs.length ? vs.map(v => `<p><sup>${v.n}</sup> ${esc(v.t)}</p>`).join('') : '<p class="ayuda">Ese pasaje no existe en esta versión.</p>';
+      body.innerHTML = `<div class="modal-h"><h2>${esc(BIB.citaTxt(c))}</h2><button type="button" data-cerrar aria-label="Cerrar">×</button></div>
+        ${chipsVersion(ver)}
+        <div class="d-cita-t">${cuerpo}</div>
+        <p class="ayuda">${esc(BIB.VERSIONES[ver].nombre)} · ${esc(BIB.VERSIONES[ver].nota)}</p>
+        <div class="fila"><a class="btn" href="#/d/biblia/${c.libro}/${c.cap}${c.v1 ? '?v=' + c.v1 + (c.v2 ? '-' + c.v2 : '') : ''}" data-cerrar>Abrir capítulo</a>
+          <button type="button" class="btn prim" id="cCompartir">Compartir en el muro</button></div>
+        ${enlacesExternos(c)}`;
+      body.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', cerrarModal));
+      body.querySelector('.d-vers').onclick = ev => { const b = ev.target.closest('[data-ver]'); if (b) { ver = b.dataset.ver; BIB.guardarPreferida(ver); pinta(); } };
+      $('#cCompartir', body).onclick = () => {
+        const texto = `«${vs.map(v => v.t).join(' ')}» ${BIB.citaTxt(c)} (${BIB.VERSIONES[ver].corto})`;
+        modalPost(null, () => { if (location.hash.startsWith('#/d/muro')) api.rutear(); else location.hash = '#/d/muro'; }, { tipo: 'versiculo', texto });
+      };
+    };
+    pinta();
+  }
+  // Las citas son botones con data-cita en cualquier texto del módulo (también dentro de ventanas)
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest('.cita[data-cita]');
+    if (!b || !document.body.classList.contains('mod-disc')) return;
+    ev.preventDefault(); ev.stopPropagation();
+    modalCita(BIB.claveACita(b.dataset.cita));
+  }, true);
+
+  async function vistaBiblia(ctx) {
+    const libro = BIB.LIBRO[ctx.partes[1]] || null;
+    const cap = Math.min(Math.max(1, +ctx.partes[2] || 1), libro?.caps || 1);
+    let ver = BIB.preferida();
+    const marcados = (() => { const m = /^(\d+)(?:-(\d+))?$/.exec(ctx.q?.get('v') || ''); return m ? [+m[1], +(m[2] || m[1])] : null; })();
+    if (!libro) {
+      // Índice de libros
+      app.innerHTML = cab('Biblia', { sub: BIB.VERSIONES[ver].nombre }) + `
+        <form class="card d-buscar" id="fBuscar"><label for="bCita" style="margin-top:0">Ir a una cita</label>
+          <div class="fila"><input id="bCita" placeholder="Ej. Juan 15:5 o Romanos 8" autocomplete="off"><button class="btn prim" style="flex:0 0 auto">Ir</button></div></form>
+        ${[['Antiguo Testamento', true], ['Nuevo Testamento', false]].map(([t, at]) => `<div class="seccion-t">${t}</div>
+          <div class="d-libros">${BIB.LIBROS.filter(l => l.at === at).map(l => `<a href="#/d/biblia/${l.id}/1" class="d-libro">${esc(l.nombre)}</a>`).join('')}</div>`).join('')}
+        <p class="ayuda" style="margin-top:20px">Versiones de uso libre: ${Object.values(BIB.VERSIONES).map(v => esc(`${v.nombre} (${v.nota})`)).join(' · ')}. Fuente: open-bibles.</p>`;
+      $('#fBuscar').onsubmit = ev => {
+        ev.preventDefault();
+        const c = BIB.leerCita($('#bCita').value.replace(/^\s*([a-zñáéíóú])/i, m => m.toUpperCase()));
+        if (!c) return toast('Escribe libro y capítulo. Ej. Juan 15', true);
+        location.hash = `#/d/biblia/${c.libro}/${c.cap}${c.v1 ? '?v=' + c.v1 + (c.v2 ? '-' + c.v2 : '') : ''}`;
+      };
+      return;
+    }
+    const pinta = async () => {
+      app.innerHTML = cab(`${libro.nombre} ${cap}`, { sub: BIB.VERSIONES[ver].nombre, atras: '#/d/biblia' }) + '<div class="spinner"></div>';
+      let vs;
+      try { vs = await BIB.capitulo(ver, libro.id, cap); } catch { if (ctx.vigente()) app.innerHTML = cab(`${libro.nombre} ${cap}`, { atras: '#/d/biblia' }) + '<div class="card">No se pudo cargar el capítulo. Revisa tu conexión.</div>'; return; }
+      if (!ctx.vigente()) return;
+      const sel = new Set();
+      app.innerHTML = cab(`${libro.nombre} ${cap}`, { sub: BIB.VERSIONES[ver].nombre, atras: '#/d/biblia' }) + `
+        ${chipsVersion(ver)}
+        <div class="d-caps" aria-label="Capítulos">${Array.from({ length: libro.caps }, (_, i) => `<a href="#/d/biblia/${libro.id}/${i + 1}" class="${i + 1 === cap ? 'activo' : ''}">${i + 1}</a>`).join('')}</div>
+        <div class="card d-capitulo" id="cap">${vs.map((t, i) => t ? `<button type="button" class="d-v ${marcados && i + 1 >= marcados[0] && i + 1 <= marcados[1] ? 'marcado' : ''}" data-v="${i + 1}"><sup>${i + 1}</sup> ${esc(t)}</button>` : '').join(' ')}</div>
+        <p class="ayuda">${esc(BIB.VERSIONES[ver].nota)} · Toca versículos para compartirlos.</p>
+        <div class="fila">
+          ${cap > 1 ? `<a class="btn" href="#/d/biblia/${libro.id}/${cap - 1}">‹ Capítulo ${cap - 1}</a>` : '<span></span>'}
+          ${cap < libro.caps ? `<a class="btn" href="#/d/biblia/${libro.id}/${cap + 1}">Capítulo ${cap + 1} ›</a>` : '<span></span>'}
+        </div>
+        ${enlacesExternos({ libro: libro.id, cap })}
+        <div class="d-selbar" id="selBar" hidden><span id="selTxt"></span><button class="btn sm" id="selCopiar">Copiar</button><button class="btn sm prim" id="selCompartir">Compartir</button></div>`;
+      if (marcados) $('.d-v.marcado')?.scrollIntoView({ block: 'center' });
+      const citaSel = () => {
+        const v = [...sel].sort((a, b) => a - b);
+        return { c: { libro: libro.id, cap, v1: v[0], v2: v.length > 1 ? v[v.length - 1] : null }, texto: v.map(n => vs[n - 1]).join(' ') };
+      };
+      const actual = () => {
+        $('#selBar').hidden = !sel.size;
+        if (sel.size) { const { c } = citaSel(); $('#selTxt').textContent = BIB.citaTxt(c); }
+      };
+      app.onclick = async ev => {
+        const vb = ev.target.closest('[data-ver]');
+        if (vb) { ver = vb.dataset.ver; BIB.guardarPreferida(ver); return pinta(); }
+        const v = ev.target.closest('.d-v');
+        if (v) { const n = +v.dataset.v; sel.has(n) ? sel.delete(n) : sel.add(n); v.classList.toggle('sel', sel.has(n)); return actual(); }
+        if (ev.target.closest('#selCopiar') || ev.target.closest('#selCompartir')) {
+          const { c, texto } = citaSel();
+          const t = `«${texto}» ${BIB.citaTxt(c)} (${BIB.VERSIONES[ver].corto})`;
+          if (ev.target.closest('#selCopiar')) { try { await navigator.clipboard.writeText(t); toast('Copiado'); } catch { prompt('Copia el texto:', t); } }
+          else modalPost(null, () => { location.hash = '#/d/muro'; }, { tipo: 'versiculo', texto: t });
+        }
+      };
+    };
+    pinta();
+  }
+
+  // ===================================================================
   // Router del módulo
   // ===================================================================
   const VISTAS = {
     inicio: vistaInicio, devocional: vistaDevocional, muro: vistaMuro, retos: vistaRetos, mentorias: vistaMentorias,
-    discipulos: vistaDiscipulos, discipulo: vistaDiscipulo, gestion: vistaGestion, personas: vistaPersonas,
+    discipulos: vistaDiscipulos, discipulo: vistaDiscipulo, gestion: vistaGestion, personas: vistaPersonas, biblia: vistaBiblia,
   };
-  const TAB = { discipulos: 'inicio', discipulo: 'inicio', gestion: 'inicio', personas: 'inicio' };
+  const TAB = { discipulos: 'inicio', discipulo: 'inicio', gestion: 'inicio', personas: 'inicio', biblia: 'devocional' };
   return {
     tabDe: sub => TAB[sub] || (VISTAS[sub] ? sub : 'inicio'),
     vista(ctx) { (VISTAS[ctx.partes[0]] || vistaInicio)(ctx); },
