@@ -140,7 +140,16 @@ export function etiquetaSeccion(linea) {
  */
 export function normalizarLetra(texto) {
   const out = [];
-  for (const l of String(texto || '').replace(/\r/g, '').split('\n')) {
+  const limpio = String(texto || '').replace(/\r/g, '')
+    // caracteres invisibles que vienen al copiar de páginas web o PDF
+    .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, '')
+    // espacios raros (duro, fino, etc.) → espacio normal, para que los acordes se reconozcan
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+    // ♯ ♭ y barras raras → # b /
+    .replace(/♯/g, '#').replace(/♭/g, 'b').replace(/[⁄∕]/g, '/')
+    // tabulaciones → espacios respetando la columna (cada 8)
+    .split('\n').map(l => l.includes('\t') ? l.split('\t').reduce((acc, parte, i, arr) => acc + parte + (i < arr.length - 1 ? ' '.repeat(8 - ((acc + parte).length % 8)) : ''), '') : l);
+  for (const l of limpio) {
     const m = /^(\s*)(\[[^\]]{1,30}\]|\([^)]{1,30}\)|[^\s:\[\]()][^:\[\]()]{0,28}:|\S+(?:\s+\d)?)\s+(.*\S.*)$/.exec(l);
     if (m) {
       const nombre = etiquetaSeccion(m[2]);
