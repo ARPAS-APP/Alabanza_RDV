@@ -1061,3 +1061,9 @@ body.mod-disc .m-osc { display: none !important; }
 .d-selbar span { font-weight: 700; font-size: 14px; white-space: nowrap; }
 .d-buscar .fila { align-items: center; }
 .d-pasaje blockquote sup { color: var(--d-arena); font-weight: 700; font-size: 11px; }
+.d-panel summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; }
+.d-panel summary::-webkit-details-marker { display: none; }
+.d-panel summary > span::after { content: " ›"; color: var(--texto-3); }
+.d-panel[open] summary > span::after { content: " ⌄"; }
+.d-panel p { margin: 10px 0 0; font-size: 14px; line-height: 1.5; }
+.d-devcoms { display: grid; gap: 10px; }

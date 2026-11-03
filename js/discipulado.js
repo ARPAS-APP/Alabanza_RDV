@@ -206,11 +206,30 @@ export function crearDiscipulado(api) {
       return;
     }
 
-    const [{ data: mia }, { data: compartidas }] = await Promise.all([
+    const veoPanel = esPastor() || misDiscipulos(e).length > 0;
+    const [{ data: mia }, { data: compartidas }, coms, completaron] = await Promise.all([
       sb.from('disc_respuestas').select('*').eq('devocional_id', dev.id).eq('autor_id', st.uid).maybeSingle(),
       sb.from('disc_respuestas').select('id, autor_id, texto, visibilidad, grupo_id, created_at').eq('devocional_id', dev.id).neq('autor_id', st.uid).order('created_at'),
+      sb.from('disc_dev_comentarios').select('*').eq('devocional_id', dev.id).order('created_at'),
+      veoPanel ? sb.rpc('disc_completaron', { p_dev: dev.id }) : Promise.resolve({ data: null }),
     ]);
     if (!ctx.vigente()) return;
+    const hayComentarios = !coms.error;   // false si aún no se ejecutó 017
+    // Panel: quién lo hizo y quién no (quien administra ve a todos; un mentor, a sus discípulos)
+    let panel = '';
+    if (veoPanel && !completaron.error && completaron.data) {
+      const hicieron = new Map(completaron.data.map(h => [h.perfil_id, h]));
+      const universo = (esPastor() ? miembrosDisc().map(p => p.id) : misDiscipulos(e)).filter(id => id !== st.uid);
+      const si = universo.filter(id => hicieron.has(id)), no = universo.filter(id => !hicieron.has(id));
+      const nombres = ids => ids.map(id => esc(nombreDe(id))).sort().join(', ') || '—';
+      panel = `<details class="card d-panel">
+        <summary><span><b>✅ ${si.length} de ${universo.length}</b> ${esPastor() ? 'lo completaron' : 'de tus discípulos lo completaron'}</span>${esPastor() ? `<button type="button" class="btn sm" data-acc="editarDev">✎ Editar</button>` : ''}</summary>
+        ${barra(si.length, universo.length || 1)}
+        <p><b>Ya lo hicieron:</b> ${nombres(si)}</p>
+        <p><b>Faltan:</b> ${nombres(no)}</p>
+        <p class="ayuda">Aquí ves quién lo completó. Lo que escribió solo lo ves si lo compartió contigo, con su grupo o con la comunidad.</p>
+      </details>`;
+    } else if (esPastor()) panel = `<div class="fila" style="margin-bottom:10px"><button type="button" class="btn sm" data-acc="editarDev" style="flex:0 0 auto">✎ Editar devocional</button></div>`;
     const mentor = miMentor(e);
     const citaDev = BIB.leerCita(dev.pasaje_ref || '');
     let pasaje = dev.pasaje_texto, pasajeVer = '';
@@ -222,10 +241,13 @@ export function crearDiscipulado(api) {
       if (!ctx.vigente()) return;
     }
     const ops = opcionesVis(e, ['yo', 'mentor', 'grupo', 'comunidad']);
-    let vis = mia ? (mia.visibilidad === 'grupo' ? 'grupo:' + mia.grupo_id : mia.visibilidad) : (mentor ? 'mentor' : 'yo');
+    // Por defecto la respuesta es pública (Comunidad); cada uno puede hacerla privada
+    let vis = mia ? (mia.visibilidad === 'grupo' ? 'grupo:' + mia.grupo_id : mia.visibilidad) : 'comunidad';
     if (!ops.some(o => o.k === vis && !o.off)) vis = 'yo';
 
-    app.innerHTML = cab(dev.titulo, { sub: (dev.serie ? dev.serie + ' · ' : '') + fechaTxt(dev.fecha, { weekday: 'long', day: 'numeric', month: 'short' }), atras: fecha !== hoyF ? '#/d/devocional' : null }) + `
+    const comentarios = coms.data || [];
+    app.innerHTML = cab(dev.titulo, { sub: (dev.serie ? dev.serie + ' · ' : '') + fechaTxt(dev.fecha, { weekday: 'long', day: 'numeric', month: 'short' }) + (dev.fecha > hoyF ? ' · programado' : ''), atras: fecha !== hoyF ? '#/d/devocional' : null }) + `
+      ${panel}
       ${pasaje || dev.pasaje_ref ? `<div class="d-hero d-pasaje"><span class="d-eti">Lee</span>${pasaje ? `<blockquote>${Array.isArray(pasaje) ? pasaje.map(v => (pasaje.length > 1 ? `<sup>${v.n}</sup> ` : '') + esc(v.t)).join(' ') : esc(pasaje).replace(/\n/g, '<br>')}</blockquote>` : ''}
         ${dev.pasaje_ref ? `<div class="d-pasaje-pie"><small>${esc(dev.pasaje_ref)}${pasajeVer ? ' · ' + pasajeVer : ''}</small>${citaDev ? `<button type="button" class="cita d-pasaje-btn" data-cita="${BIB.citaClave(citaDev)}">📖 Otras versiones</button>` : ''}</div>` : ''}</div>` : ''}
       ${dev.reflexion ? `<div class="card d-bloque"><span class="d-eti">Reflexiona</span>${parrafos(dev.reflexion)}</div>` : ''}
@@ -241,7 +263,36 @@ export function crearDiscipulado(api) {
       ${compartidas?.length ? `<div class="seccion-t">Lo que compartieron (${compartidas.length})</div><div class="lista">${compartidas.map(r => `
         <div class="card d-post"><div class="d-post-h">${avatar(r.autor_id)}<div class="info"><b>${esc(nombreDe(r.autor_id))}</b><small>${esc(haceCuanto(r.created_at))}</small></div><span class="tag">${visDe(r).ico} ${esc(visDe(r).txt)}</span></div>
         <div class="d-post-t">${esc1(r.texto)}</div></div>`).join('')}</div>` : ''}
+      ${hayComentarios ? `<div class="seccion-t">Comentarios${comentarios.length ? ` (${comentarios.length})` : ''}</div>
+        <div class="card d-devcoms">
+          ${comentarios.map(c => `<div class="d-com"><b>${esc(nombreDe(c.autor_id))}</b> ${txt(c.texto)} <small>${esc(haceCuanto(c.created_at))}</small>
+            ${c.autor_id === st.uid || esPastor() ? `<button class="btn-link" data-acc="borrarDevCom" data-c="${c.id}">Borrar</button>` : ''}</div>`).join('') || '<p class="ayuda" style="margin:0">Todavía no hay comentarios. ¿Qué te habló Dios con este devocional?</p>'}
+          <form class="d-com-f" id="fDevCom"><input name="t" maxlength="2000" placeholder="Escribe un comentario…" aria-label="Comentario" autocomplete="off"><button class="btn sm prim">Enviar</button></form>
+        </div>` : ''}
       ${listaHtml}`;
+
+    app.onclick = async ev => {
+      const b = ev.target.closest('[data-acc]');
+      if (!b) return;
+      if (b.dataset.acc === 'editarDev') { ev.preventDefault(); return modalDevocional(dev); }
+      if (b.dataset.acc === 'borrarDevCom') {
+        if (!confirm('¿Borrar este comentario?')) return;
+        const { error } = await sb.from('disc_dev_comentarios').delete().eq('id', b.dataset.c);
+        if (error) return fallo(error, 'Borrar');
+        api.rutear();
+      }
+    };
+    const fc = $('#fDevCom');
+    if (fc) fc.onsubmit = ev => {
+      ev.preventDefault();
+      const texto = fc.t.value.trim();
+      if (!texto) return;
+      ocupado(fc.querySelector('button'), async () => {
+        const { error } = await sb.from('disc_dev_comentarios').insert({ devocional_id: dev.id, autor_id: st.uid, texto });
+        if (error) return fallo(error, 'Comentario');
+        api.rutear();
+      });
+    };
 
     $('#segVis').onclick = ev => {
       const b = ev.target.closest('[data-vis]');
@@ -858,7 +909,7 @@ export function crearDiscipulado(api) {
       ${huecos.length ? `<p class="ayuda">Días sin devocional esta semana: ${huecos.map(f => `<button class="chip" data-nuevo="${f}">${esc(fechaTxt(f, { weekday: 'short', day: 'numeric' }))}</button>`).join(' ')}</p>` : '<p class="ayuda">✓ La semana está cubierta.</p>'}
       <div class="lista">${(devs.data || []).slice().reverse().map(d => `<button class="item" data-dev="${d.id}" style="text-align:left;font:inherit;width:100%">
         <span class="d-chk ${d.fecha <= hoyF ? 'si' : ''}">${d.fecha === hoyF ? '●' : d.fecha < hoyF ? '✓' : ''}</span>
-        <div class="info"><b>${esc(d.titulo)}</b><small>${esc(fechaTxt(d.fecha, { weekday: 'short', day: 'numeric', month: 'short' }))}${d.fecha > hoyF ? ' · programado' : ''}${d.serie ? ' · ' + esc(d.serie) : ''}</small></div>✎</button>`).join('')}</div>
+        <div class="info"><b>${esc(d.titulo)}</b><small>${esc(fechaTxt(d.fecha, { weekday: 'short', day: 'numeric', month: 'short' }))}${d.fecha > hoyF ? ' · programado' : ''}${d.serie ? ' · ' + esc(d.serie) : ''}</small></div>›</button>`).join('')}</div>
       <button class="btn prim blk" data-nuevo="">＋ Nuevo devocional</button>
       <div class="seccion-t">Retos</div>
       <div class="lista">${(retos.data || []).map(r => `<button class="item" data-reto="${r.id}" style="text-align:left;font:inherit;width:100%">
@@ -868,7 +919,7 @@ export function crearDiscipulado(api) {
       const n = ev.target.closest('[data-nuevo]');
       if (n) return modalDevocional(null, n.dataset.nuevo || sumarDias([...fechas].sort().pop() || sumarDias(hoyF, -1), 1));
       const d = ev.target.closest('[data-dev]');
-      if (d) return modalDevocional(devs.data.find(x => x.id === d.dataset.dev));
+      if (d) { location.hash = '#/d/devocional/' + devs.data.find(x => x.id === d.dataset.dev).fecha; return; }
       const r = ev.target.closest('[data-reto]');
       if (r) return modalReto(retos.data.find(x => x.id === r.dataset.reto) || null);
     };
@@ -906,7 +957,9 @@ export function crearDiscipulado(api) {
       ocupado(ev.target.querySelector('button.prim'), async () => {
         const r = d ? await sb.from('disc_devocionales').update(f).eq('id', d.id) : await sb.from('disc_devocionales').insert(f);
         if (r.error) return fallo(r.error.code === '23505' ? { message: 'Ya hay un devocional en esa fecha' } : r.error, 'Devocional');
-        cerrarModal(); toast(d ? 'Guardado' : 'Devocional publicado'); api.rutear();
+        cerrarModal(); toast(d ? 'Guardado' : 'Devocional publicado');
+        const destino = '#/d/devocional/' + f.fecha;
+        if (location.hash.startsWith('#/d/devocional') && location.hash !== destino) location.hash = destino; else api.rutear();
       });
     };
     const bb = $('#bBorrarDev', body);
@@ -914,7 +967,8 @@ export function crearDiscipulado(api) {
       if (!confirm('¿Borrar este devocional? También se borran las respuestas que tenga.')) return;
       const { error } = await sb.from('disc_devocionales').delete().eq('id', d.id);
       if (error) return fallo(error, 'Borrar');
-      cerrarModal(); toast('Borrado'); api.rutear();
+      cerrarModal(); toast('Borrado');
+      if (location.hash.startsWith('#/d/devocional')) location.hash = '#/d/gestion'; else api.rutear();
     };
   }
 
