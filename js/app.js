@@ -703,9 +703,9 @@ Cuan grande es Él…">${esc(x.letra)}</textarea>
   const ayuda = () => {
     $('#eaAyuda', body).innerHTML = modo === 'texto'
       ? 'Pon el cursor donde va el acorde y toca un botón de arriba. También puedes pegar canciones con los acordes en la línea de arriba. Una línea que termina en <b>:</b> (ej. <b>Coro:</b>) se muestra como sección.'
-      : sel?.ini !== undefined ? 'Acorde seleccionado: toca otro botón para cambiarlo o 🗑 para quitarlo.'
-      : sel ? 'Ahora toca el acorde. Usa ‹ › para moverlo dentro de la palabra.'
-      : 'Toca la palabra donde cambia el acorde y luego el acorde.';
+      : sel?.ini !== undefined ? 'Acorde seleccionado: toca la letra a donde lo quieres mover (o usa ‹ ›), otro botón para cambiarlo o 🗑 para quitarlo.'
+      : sel ? 'Ahora toca el acorde de arriba. Usa ‹ › para correr la posición letra por letra.'
+      : 'Toca la letra exacta donde cambia el acorde y luego el acorde. Para mover uno, tócalo y luego toca la letra nueva.';
   };
 
   const pintarTeclas = () => {
@@ -717,38 +717,50 @@ Cuan grande es Él…">${esc(x.letra)}</textarea>
       <div class="ea-fila">${extras.map(ch => btn(ch, 'sec')).join('')}
         <button type="button" class="ea-k sec" data-otro>Otro…</button>
         ${modo === 'tocar' && sel?.ini !== undefined ? '<button type="button" class="ea-k peligro" data-quitar>🗑 Quitar</button>' : ''}
-        ${modo === 'tocar' && sel?.pos !== undefined ? '<button type="button" class="ea-k sec" data-mover="-1">‹</button><button type="button" class="ea-k sec" data-mover="1">›</button>' : ''}
+        ${modo === 'tocar' && sel ? '<button type="button" class="ea-k sec" data-mover="-1">‹</button><button type="button" class="ea-k sec" data-mover="1">›</button>' : ''}
       </div>`;
   };
 
-  // ---- Modo tocar: la letra se muestra con palabras y acordes tocables ----
+  // ---- Modo tocar: se ve como la canción final (acorde encima de la letra) y cada letra se puede tocar ----
   const pintarZona = () => {
     const txt = ta.value;
     let html = '', base = 0;
+    const letra = (c, pos) => `<span class="ea-c${sel?.pos === pos ? ' sel' : ''}" data-pos="${pos}">${c === ' ' ? '&nbsp;' : esc(c)}</span>`;
     for (const linea of txt.split('\n')) {
       if (!linea.trim()) { html += '<div class="l-vacia"></div>'; base += linea.length + 1; continue; }
-      let fila = '';
-      const re = /\[[^\]]*\]|[^\s[]+|\s+/g; let m;
+      // partes: acorde (o nada) + texto que le sigue hasta el próximo acorde
+      const partes = [];
+      const re = /\[([^\]]*)\]/g; let m, ultimo = 0, acorde = null;
       while ((m = re.exec(linea))) {
-        const ini = base + m.index, fin = ini + m[0].length, tok = m[0];
-        if (tok[0] === '[') {
-          const marcado = sel?.ini === ini ? ' sel' : '';
-          fila += `<button type="button" class="ea-ch${marcado}" data-ini="${ini}" data-fin="${fin}">${esc(cifrado(tok.slice(1, -1), ajustes.latino))}</button>`;
-        } else if (/^\s+$/.test(tok)) {
-          fila += tok.replace(/ /g, '&nbsp;');
-        } else if (sel?.pos !== undefined && sel.pos >= ini && sel.pos < fin) {
-          const k = sel.pos - ini;
-          fila += `<span class="ea-w sel" data-pos="${ini}">${esc(tok.slice(0, k))}<i class="caret"></i>${esc(tok.slice(k))}</span>`;
-        } else {
-          fila += `<span class="ea-w" data-pos="${ini}">${esc(tok)}</span>`;
-        }
+        if (m.index > ultimo || acorde) partes.push({ acorde, ini: ultimo, txt: linea.slice(ultimo, m.index) });
+        acorde = { ini: base + m.index, fin: base + re.lastIndex, nombre: m[1] };
+        ultimo = re.lastIndex;
+      }
+      partes.push({ acorde, ini: ultimo, txt: linea.slice(ultimo) });
+      let fila = '';
+      for (const p of partes) {
+        const chip = p.acorde ? `<button type="button" class="ea-ch${sel?.ini === p.acorde.ini ? ' sel' : ''}" data-ini="${p.acorde.ini}" data-fin="${p.acorde.fin}">${esc(cifrado(p.acorde.nombre, ajustes.latino))}</button>` : '';
+        const palabras = [...p.txt.matchAll(/\S*\s*/g)].filter(x => x[0]);
+        if (!palabras.length) { fila += `<span class="ea-seg"><span class="ea-chrow">${chip}</span><span class="ea-ly">&nbsp;</span></span>`; continue; }
+        palabras.forEach((w, i) => {
+          const ini = base + p.ini + w.index;
+          fila += `<span class="ea-seg"><span class="ea-chrow">${i === 0 ? chip : ''}</span><span class="ea-ly">${[...w[0]].map((c, k) => letra(c, ini + k)).join('')}</span></span>`;
+        });
       }
       const finLinea = base + linea.length;
-      fila += `<span class="ea-w ea-fin ${sel?.pos === finLinea ? 'sel' : ''}" data-pos="${finLinea}" title="Final de la línea">${sel?.pos === finLinea ? '<i class="caret"></i>' : ''}·</span>`;
+      fila += `<span class="ea-seg"><span class="ea-chrow"></span><span class="ea-ly"><span class="ea-c ea-fin${sel?.pos === finLinea ? ' sel' : ''}" data-pos="${finLinea}" title="Final de la línea">·</span></span></span>`;
       html += `<div class="ea-l">${fila}</div>`;
       base += linea.length + 1;
     }
     zona.innerHTML = html || '<p class="ayuda">Primero escribe o pega la letra en "Escribir".</p>';
+  };
+  /** Pone el acorde [ini,fin) en la posición pos (contada en el texto actual). */
+  const moverAcorde = (ini, fin, pos) => {
+    const v = ta.value, tok = v.slice(ini, fin);
+    const sinEl = v.slice(0, ini) + v.slice(fin);
+    const p = pos > ini ? pos - tok.length : pos;
+    ta.value = sinEl.slice(0, p) + tok + sinEl.slice(p);
+    return { ini: p, fin: p + tok.length };
   };
 
   const refrescar = () => { pintarTeclas(); if (modo === 'tocar') pintarZona(); ayuda(); };
@@ -795,6 +807,20 @@ Cuan grande es Él…">${esc(x.letra)}</textarea>
     } else if (b.hasAttribute('data-quitar') && sel?.ini !== undefined) {
       ta.value = ta.value.slice(0, sel.ini) + ta.value.slice(sel.fin);
       sel = null; refrescar();
+    } else if (b.dataset.mover && sel?.ini !== undefined) {
+      // correr el acorde seleccionado una letra (sin pasar de renglón)
+      const v = ta.value, paso = +b.dataset.mover;
+      const sinEl = v.slice(0, sel.ini) + v.slice(sel.fin);
+      let p = sel.ini + paso;
+      if (paso > 0 && sinEl[sel.ini] === '[') p = sinEl.indexOf(']', sel.ini) + 1;
+      if (paso < 0 && sinEl[p] === ']') p = sinEl.lastIndexOf('[', p);
+      const cruza = sinEl[paso > 0 ? sel.ini : p] === '\n';
+      if (p >= 0 && p <= sinEl.length && !cruza) {
+        const tok = v.slice(sel.ini, sel.fin);
+        ta.value = sinEl.slice(0, p) + tok + sinEl.slice(p);
+        sel = { ini: p, fin: p + tok.length };
+      }
+      refrescar();
     } else if (b.dataset.mover && sel?.pos !== undefined) {
       const v = ta.value, paso = +b.dataset.mover;
       let nuevo = sel.pos + paso;
@@ -808,9 +834,15 @@ Cuan grande es Él…">${esc(x.letra)}</textarea>
   };
   zona.onclick = e => {
     const ch = e.target.closest('.ea-ch');
-    const w = e.target.closest('.ea-w');
+    const c = e.target.closest('[data-pos]');
     if (ch) sel = sel?.ini === +ch.dataset.ini ? null : { ini: +ch.dataset.ini, fin: +ch.dataset.fin };
-    else if (w) sel = sel?.pos === +w.dataset.pos ? null : { pos: +w.dataset.pos };
+    else if (c && sel?.ini !== undefined) {
+      // con un acorde seleccionado, tocar una letra lo mueve ahí
+      const pos = +c.dataset.pos;
+      if (pos !== sel.ini && pos !== sel.fin) moverAcorde(sel.ini, sel.fin, pos);
+      sel = null;
+    }
+    else if (c) sel = sel?.pos === +c.dataset.pos ? null : { pos: +c.dataset.pos };
     else return;
     refrescar();
   };

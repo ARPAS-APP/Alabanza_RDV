@@ -258,8 +258,16 @@ export function acordesDelTono(tono) {
 export function aCorchetes(texto) {
   const lineas = normalizarLetra(texto).split('\n');
   const out = [];
+  // Línea con solo acordes entre corchetes ("[A]      [D]") encima de la letra: se trata como línea de acordes
+  const soloCorchetes = l => /^\s*(\[[^\]]+\]\s*)+$/.test(l) && [...l.matchAll(/\[([^\]]+)\]/g)].every(x => esAcorde(x[1].trim()));
   for (let i = 0; i < lineas.length; i++) {
-    const l = lineas[i];
+    let l = lineas[i];
+    if (soloCorchetes(l)) {
+      const sig = lineas[i + 1];
+      if (sig !== undefined && sig.trim() && !esLineaDeAcordes(sig) && !soloCorchetes(sig) && !sig.includes('[') && etiquetaSeccion(sig) === null) {
+        l = l.replace(/\[([^\]]+)\]/g, (_, ch) => ch.trim() + ' '.repeat(Math.max(0, _.length - ch.trim().length)));
+      } else { out.push(l); continue; }
+    }
     if (!esLineaDeAcordes(l)) { out.push(l); continue; }
     const acordes = [];
     const re = /\S+/g; let m;
