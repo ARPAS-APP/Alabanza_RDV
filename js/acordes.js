@@ -88,7 +88,12 @@ export function partirTok(t) {
   return { pre: m[1], ch: m[2], post: m[3] };
 }
 
+// Caracteres invisibles que llegan al copiar cifrados de internet o de un PDF (espacio de ancho cero, BOM, guion suave…)
+const INVISIBLES = /[​-‍⁠﻿­]/g;
+export const sinInvisibles = s => String(s || '').replace(INVISIBLES, '');
+
 export function esLineaDeAcordes(linea) {
+  linea = sinInvisibles(linea);
   if (linea.includes('[')) return false;
   const toks = linea.trim().split(/\s+/).filter(Boolean);
   if (!toks.length) return false;

@@ -2,7 +2,7 @@
 // Muestra días, quién canta y canciones (autor, video y letra sin acordes).
 // Los datos vienen de funciones de Supabase que validan el código (ver supabase/007_programa_publico.sql).
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { esLineaDeAcordes } from './acordes.js';
+import { esLineaDeAcordes, sinInvisibles } from './acordes.js';
 import { seccionDe } from './cifrado.js';
 
 const $ = s => document.querySelector(s);
@@ -41,9 +41,11 @@ const moverMes = (m, n) => { const [y, mm] = m.split('-').map(Number); return cl
 /** Letra sin acordes: quita líneas de acordes, [acordes] en línea y deja los títulos de sección. */
 function letraLimpia(letra) {
   const out = [];
-  for (const raw of String(letra || '').replace(/\r/g, '').split('\n')) {
+  for (const raw of sinInvisibles(letra).replace(/\r/g, '').split('\n')) {
     if (/^\s*tono\s*:/i.test(raw) || esLineaDeAcordes(raw)) continue;
-    const sec = seccionDe(raw);
+    // "Intro: G G/B Em7" → solo el nombre de la parte, sin los acordes
+    const conAcordes = /^\s*([^:\[\]]{1,30}):\s*(.+)$/.exec(raw);
+    const sec = conAcordes && esLineaDeAcordes(conAcordes[2]) ? (seccionDe(conAcordes[1] + ':') ?? conAcordes[1].trim()) : seccionDe(raw);
     if (sec !== null) {
       if (out[out.length - 1] === '') out.pop();
       if (out.length && out[out.length - 1].sec !== undefined) out.pop();   // sección sin letra (p. ej. Intro instrumental)
