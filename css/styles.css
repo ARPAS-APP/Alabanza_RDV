@@ -1067,3 +1067,8 @@ body.mod-disc .m-osc { display: none !important; }
 .d-panel[open] summary > span::after { content: " ⌄"; }
 .d-panel p { margin: 10px 0 0; font-size: 14px; line-height: 1.5; }
 .d-devcoms { display: grid; gap: 10px; }
+
+/* Discipulado: aprobados por mentores (vista de quien administra) */
+.d-aprob { display: grid; gap: 8px; }
+.d-aprob-f { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 14px; }
+.d-aprob-f small { color: var(--texto2, inherit); opacity: .75; white-space: nowrap; }

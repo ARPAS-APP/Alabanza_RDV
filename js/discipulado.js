@@ -34,6 +34,10 @@ export function crearDiscipulado(api) {
   // ---------- utilidades ----------
   const rol = () => api.discRol();
   const esPastor = () => rol() === 'pastor';
+  const esMentorRol = () => rol() === 'mentor' || rol() === 'pastor';
+  // Personas que se registraron con mi link de mentor y esperan que las apruebe
+  const misInvitados = () => [...st.perfiles.values()].filter(p => p.estado === 'pendiente' && p.invitado_por === st.uid);
+  const linkMentor = () => `${location.origin}${location.pathname}#/registro?m=discipulado&mentor=${st.uid}`;
   const fechaPa = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d);   // YYYY-MM-DD
   const sumarDias = (f, n) => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
   const fechaTxt = (f, opt = { weekday: 'long', day: 'numeric', month: 'long' }) => new Date(f + 'T12:00:00Z').toLocaleDateString('es-PA', { ...opt, timeZone: 'UTC' });
@@ -112,6 +116,7 @@ export function crearDiscipulado(api) {
       sb.from('disc_retos_part').select('reto_id, inicio, completado_at, reto:disc_retos(titulo, dias), marcas:disc_retos_marcas(fecha)').eq('perfil_id', st.uid).is('completado_at', null),
       misDiscipulos(e).length ? sb.rpc('disc_resumen') : Promise.resolve({ data: [] }),
     ]);
+    const nums = esPastor() ? (await sb.rpc('disc_estadisticas')).data : null;
     const preguntas = await preguntasSinResponder();
     if (!ctx.vigente()) return;
     if (!ctx.vigente()) return;
@@ -129,10 +134,18 @@ export function crearDiscipulado(api) {
     const reto = (retos.data || [])[0];
     const m = (prox.data || [])[0];
     const atencion = (resumen.data || []).filter(r => !r.ultimo || r.ultimo < sumarDias(hoyF, -6)).length;
-    const pendientes = (api.esAdmin() || esPastor()) ? [...st.perfiles.values()].filter(p => p.estado === 'pendiente').length : 0;
+    const pendientes = (api.esAdmin() || esPastor()) ? [...st.perfiles.values()].filter(p => p.estado === 'pendiente' && !p.invitado_por).length : 0;
+    const invitados = esMentorRol() ? misInvitados().length : 0;
+    const htmlNums = nums ? `<div class="seccion-t">Discipulado en números</div>
+      <div class="d-stats"><div><b>${nums.total}</b><small>En Discipulado</small></div><div><b>${nums.activos7}</b><small>Activos esta semana</small></div><div><b>${nums.activos30}</b><small>Activos este mes</small></div></div>
+      <div class="d-stats"><div><b>${nums.mentores}</b><small>Mentores</small></div><div><b>${nums.discipulos}</b><small>Discípulos</small></div><div><b>${nums.nuevos30}</b><small>Nuevos este mes</small></div></div>
+      <p class="ayuda" style="margin-top:-4px">Activo: respondió un devocional, publicó, comentó o marcó un reto.${nums.esperan_mentor ? ` · ${nums.esperan_mentor} ${nums.esperan_mentor === 1 ? 'persona espera' : 'personas esperan'} que su mentor la apruebe.` : ''}</p>
+      ${(nums.recientes || []).length ? `<div class="card d-aprob"><span class="d-eti">Aprobados por mentores · últimos 30 días</span>
+        ${nums.recientes.map(r => `<div class="d-aprob-f"><span><b>${esc(nombreDe(r.mentor).split(' ')[0])}</b> aprobó a <b>${esc(nombreDe(r.perfil))}</b></span><small>${esc(haceCuanto(r.at))}</small></div>`).join('')}</div>` : ''}` : '';
 
     app.onclick = ev => { if (ev.target.closest('[data-preguntas]')) filtroMuro = 'preguntas'; };
     app.innerHTML = cab(`Hola, ${nombre}`, { sub: fechaTxt(hoyF) }) + `
+      ${invitados ? `<a class="card d-aviso" href="#/d/discipulos"><b>🌱 ${invitados} ${invitados === 1 ? 'persona quiere' : 'personas quieren'} ser tu discípulo</b><span>Se registraron con tu link. Apruébalas en Mis discípulos ›</span></a>` : ''}
       ${pendientes ? `<a class="card d-aviso" href="#/d/personas"><b>🔑 ${pendientes} ${pendientes === 1 ? 'solicitud' : 'solicitudes'} de acceso</b><span>Revísalas cuando hayas conversado con cada persona ›</span></a>` : ''}
       <div class="d-hero">
         <div class="d-racha"><span class="d-fuego">🔥</span><div><b>${racha.actual} ${racha.actual === 1 ? 'día seguido' : 'días seguidos'}</b><small>Tu racha de devocionales${racha.maxima > racha.actual ? ` · récord ${racha.maxima}` : ''}</small></div></div>
@@ -156,7 +169,8 @@ export function crearDiscipulado(api) {
       </div>
       <a class="item d-fila" href="#/d/biblia"><span class="d-mini-ico">📖</span><div class="info"><b>Biblia</b><small>${Object.keys(BIB.VERSIONES).length} versiones en español</small></div>›</a>
       ${preguntas ? `<a class="item d-fila" href="#/d/muro" data-preguntas><span class="d-mini-ico">❓</span><div class="info"><b>${preguntas} ${preguntas === 1 ? 'pregunta' : 'preguntas'} sin responder</b><small>En el muro</small></div>›</a>` : ''}
-      ${misDiscipulos(e).length ? `<a class="item d-fila" href="#/d/discipulos"><span class="d-mini-ico">🌱</span><div class="info"><b>Mis discípulos (${misDiscipulos(e).length})</b><small>${atencion ? `${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención` : 'Todos al día'}</small></div>›</a>` : ''}
+      ${misDiscipulos(e).length || esMentorRol() ? `<a class="item d-fila" href="#/d/discipulos"><span class="d-mini-ico">🌱</span><div class="info"><b>Mis discípulos (${misDiscipulos(e).length})</b><small>${!misDiscipulos(e).length ? 'Invita a tus discípulos con tu link' : atencion ? `${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención` : 'Todos al día'}</small></div>›</a>` : ''}
+      ${htmlNums}
       ${esPastor() ? `<a class="item d-fila" href="#/d/gestion"><span class="d-mini-ico">🛠️</span><div class="info"><b>Gestionar Discipulado</b><small>Devocionales, retos y personas</small></div>›</a>` : ''}
       ${!miMentor(e) && !misDiscipulos(e).length && !esPastor() ? '<p class="ayuda" style="text-align:center">Todavía no tienes mentor asignado. Quien te invitó te lo asignará pronto.</p>' : ''}`;
   }
@@ -802,6 +816,7 @@ export function crearDiscipulado(api) {
   let verTodos = false;
   async function vistaDiscipulos(ctx) {
     cargando('Mis discípulos');
+    if (esMentorRol()) await api.recargarPerfiles();
     const e = await estructura(true);
     const todos = verTodos && esPastor();
     const { data, error } = await sb.rpc('disc_resumen', { p_todos: todos });
@@ -814,14 +829,40 @@ export function crearDiscipulado(api) {
     const semana = filas.filter(r => r.proxima && new Date(r.proxima) - Date.now() < 7 * 86400e3).length;
     app.innerHTML = cab(todos ? 'Todos los discípulos' : 'Mis discípulos', { sub: todos ? 'Vista de administración' : 'Panel del mentor', atras: '#/d/inicio' }) + `
       ${esPastor() ? `<div class="segmentado" id="segTodos"><button data-t="0" class="${!todos ? 'activo' : ''}">Mis discípulos</button><button data-t="1" class="${todos ? 'activo' : ''}">Toda la iglesia</button></div>` : ''}
+      ${esMentorRol() && !todos ? htmlInvitados() : ''}
       <div class="d-stats"><div><b>${filas.length}</b><small>Discípulos</small></div><div><b>${alDia}</b><small>Al día hoy</small></div><div><b>${semana}</b><small>Mentorías esta semana</small></div></div>
       ${frios.length ? `<div class="card d-alerta">⚠️ <span>${frios.map(r => `<b>${esc(nombreDe(r.perfil_id))}</b> ${r.ultimo ? 'no hace el devocional desde ' + esc(haceDias(r.ultimo)) : 'aún no ha hecho ningún devocional'}${r.proxima ? '' : ' y no tiene mentoría agendada'}`).join('. ')}.</span></div>` : ''}
       <div class="lista">${filas.length ? filas.map(r => `
         <a class="item" href="#/d/discipulo/${r.perfil_id}">${avatar(r.perfil_id)}
           <div class="info"><b>${esc(nombreDe(r.perfil_id))}</b><small>Último devocional: ${esc(haceDias(r.ultimo))}${todos ? ' · mentor: ' + esc(nombreDe(r.mentor_id)) : ''}</small>
           <small>${r.proxima ? 'Próxima: ' + esc(diaTxt(r.proxima)) : 'Sin mentoría agendada'} · Nivel ${r.nivel}</small></div>
-          <span class="d-chip-racha ${r.racha ? '' : 'cero'}">🔥 ${r.racha}</span></a>`).join('') : vacio('🌱', todos ? 'Todavía no hay discípulos asignados.' : 'Todavía no tienes discípulos asignados.')}</div>`;
+          <span class="d-chip-racha ${r.racha ? '' : 'cero'}">🔥 ${r.racha}</span></a>`).join('') : vacio('🌱', todos ? 'Todavía no hay discípulos asignados.' : 'Todavía no tienes discípulos asignados.')}</div>
+      ${esMentorRol() && !todos ? `<div class="seccion-t">Invitar discípulos</div>
+      <div class="card"><p class="ayuda" style="margin-top:0">Después de conversar con alguien, mándale tu link. Al registrarse te aparece aquí arriba para que lo apruebes, y queda como tu discípulo.</p>
+        <button class="btn blk" id="bInv" style="margin-top:0">📋 Copiar mi link de invitación</button></div>` : ''}`;
     $('#segTodos') && ($('#segTodos').onclick = ev => { const b = ev.target.closest('[data-t]'); if (b) { verTodos = b.dataset.t === '1'; api.rutear(); } });
+    $('#bInv') && ($('#bInv').onclick = async () => { try { await navigator.clipboard.writeText(linkMentor()); toast('Link copiado'); } catch { prompt('Copia tu link:', linkMentor()); } });
+    app.onclick = ev => {
+      const b = ev.target.closest('[data-aprob]');
+      if (!b) return;
+      const ok = b.dataset.ok === '1', p = st.perfiles.get(b.dataset.aprob);
+      if (!ok && !confirm(`¿${p?.nombre || 'Esta persona'} no es tu discípulo? Su solicitud pasará a quien administra Discipulado.`)) return;
+      ocupado(b, async () => {
+        const { error } = await sb.rpc('disc_aprobar_invitado', { p_perfil: b.dataset.aprob, p_aprobar: ok });
+        if (error) return fallo(error, 'Aprobar');
+        toast(ok ? `${(p?.nombre || '').split(' ')[0]} ya es tu discípulo 🌱` : 'Solicitud enviada a quien administra');
+        est = null; await api.recargarPerfiles(); api.rutear();
+      });
+    };
+  }
+
+  function htmlInvitados() {
+    const lista = misInvitados();
+    if (!lista.length) return '';
+    return `<div class="seccion-t" style="color:var(--peligro)">Quieren ser tus discípulos (${lista.length})</div>
+      <div class="lista">${lista.map(p => `<div class="item" style="cursor:default">
+        <span class="avatar sm">${esc(iniciales(p.nombre))}</span><div class="info"><b>${esc(p.nombre)}</b><small>${esc(p.email || '')} · se registró con tu link</small>
+        <div class="fila" style="margin-top:8px"><button type="button" class="btn sm" data-aprob="${p.id}" data-ok="0">No es mi discípulo</button><button type="button" class="btn sm prim" data-aprob="${p.id}" data-ok="1">Aprobar</button></div></div></div>`).join('')}</div>`;
   }
 
   async function vistaDiscipulo(ctx) {
@@ -1022,14 +1063,14 @@ export function crearDiscipulado(api) {
       ${pend.length ? `<div class="seccion-t" style="color:var(--peligro)">Solicitudes pendientes (${pend.length})</div>
         <p class="ayuda" style="margin-top:-4px">Conversa con cada persona antes de darle acceso.</p>
         <div class="lista">${pend.map(p => `<button class="item" data-p="${p.id}" style="text-align:left;font:inherit;width:100%">
-          <span class="avatar sm">${esc(iniciales(p.nombre))}</span><div class="info"><b>${esc(p.nombre)}</b><small>${esc(pedido(p))} · ${esc(p.email || '')}</small></div><span class="btn sm prim">Revisar</span></button>`).join('')}</div>` : ''}
+          <span class="avatar sm">${esc(iniciales(p.nombre))}</span><div class="info"><b>${esc(p.nombre)}</b><small>${p.invitado_por ? esc('Invitado por ' + nombreDe(p.invitado_por) + ' · lo aprueba su mentor') : esc(pedido(p))} · ${esc(p.email || '')}</small></div><span class="btn sm ${p.invitado_por ? '' : 'prim'}">Revisar</span></button>`).join('')}</div>` : ''}
       ${sinMentor ? `<div class="card d-alerta">⚠️ <span>${sinMentor} ${sinMentor === 1 ? 'discípulo no tiene' : 'discípulos no tienen'} mentor asignado.</span></div>` : ''}
       ${Object.entries(porRol).map(([k, lista]) => lista.length ? `<div class="seccion-t">${lista.length === 1 ? ROLES_D[k] : ROLES_D_PL[k]} (${lista.length})</div>
         <div class="lista">${lista.sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => `<button class="item" data-p="${p.id}" style="text-align:left;font:inherit;width:100%">
           <span class="avatar sm">${esc(iniciales(p.nombre))}</span><div class="info"><b>${esc(p.nombre)}</b>
           <small>${e.mentorDe.has(p.id) ? 'Mentor: ' + esc(nombreDe(e.mentorDe.get(p.id))) : (k === 'discipulo' ? '⚠️ Sin mentor' : 'Sin mentor')}${e.discipulosDe.get(p.id)?.length ? ` · acompaña a ${e.discipulosDe.get(p.id).length}` : ''}</small></div>✎</button>`).join('')}</div>` : '').join('')}
       <div class="seccion-t">Invitar</div>
-      <div class="card"><p class="ayuda" style="margin-top:0">Después de conversar con alguien, mándale este link. Al registrarse queda pendiente hasta que lo apruebes aquí.</p>
+      <div class="card"><p class="ayuda" style="margin-top:0">Después de conversar con alguien, mándale este link. Al registrarse queda pendiente hasta que lo apruebes aquí. Cada mentor tiene además su propio link en <a href="#/d/discipulos">Mis discípulos</a>: quien se registra con él lo aprueba su mentor.</p>
         <button class="btn blk" id="bLink" style="margin-top:0">📋 Copiar link de registro</button></div>`;
     $('#bLink').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('Link copiado'); } catch { prompt('Copia este link:', link); } };
     app.onclick = ev => {

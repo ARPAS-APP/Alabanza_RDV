@@ -45,7 +45,8 @@ Costo: **$0** (GitHub Pages + plan gratis de Supabase).
 
 15. `017_disc_devocional_interactivo.sql` ⏳ **ejecutar**: comentarios en cada devocional (`disc_dev_comentarios`) y `disc_completaron` (quien administra ve quién lo hizo; un mentor, sus discípulos; nunca el texto privado).
 
-16. `018_disc_notificaciones.sql` ⏳ **ejecutar** después de publicar la Edge Function **`avisos-disc`** (Verify JWT desactivado; usa los secretos `PUSH_SECRET` y `VAPID_PRIVATE_KEY` de la función `push`). Disparadores en mentorías, comentarios, publicaciones y solicitudes, y tareas programadas: devocional 7:00 a.m., racha 8:00 p.m., mentoría 2 h antes.
+16. `018_disc_notificaciones.sql` ✅ después de publicar la Edge Function **`avisos-disc`** (Verify JWT desactivado; usa los secretos `PUSH_SECRET` y `VAPID_PRIVATE_KEY` de la función `push`). Disparadores en mentorías, comentarios, publicaciones y solicitudes, y tareas programadas: devocional 7:00 a.m., racha 8:00 p.m., mentoría 2 h antes.
+17. `019_disc_invitaciones_mentor.sql` ⏳ **ejecutar** y volver a publicar la Edge Function **`avisos-disc`**. Cada mentor tiene su link (`#/registro?m=discipulado&mentor=<id>`) y aprueba a quienes se registran con él (solo como discípulos suyos, solo Discipulado). "No es mi discípulo" pasa la solicitud a quien administra. Quien administra recibe aviso de cada aprobación y ve en Inicio "Discipulado en números" (total, activos 7 y 30 días, mentores, discípulos, nuevos, aprobados por mentores).
 
 No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 

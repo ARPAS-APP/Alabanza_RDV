@@ -331,6 +331,8 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
     const f = Object.fromEntries(new FormData(e.target));
     // Cada link registra en un solo ministerio: el de invitación (?m=discipulado) solo en Discipulado
     const solicita = [pre === 'discipulado' ? 'discipulado' : 'alabanza'];
+    // Link de un mentor (&mentor=<id>): la solicitud le llega a ese mentor
+    const mentor = pre === 'discipulado' ? new URLSearchParams(location.hash.split('?')[1] || '').get('mentor') : null;
     const btn = e.target.querySelector('button[type=submit]');
     const msg = (txt, err = true) => ($('#authMsg').innerHTML = `<div class="msg ${err ? 'err' : 'ok'}">${esc(txt)}</div>`);
     btn.disabled = true;
@@ -342,11 +344,11 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
       } else if (modo === 'registro') {
         const { data, error } = await sb.auth.signUp({
           email: f.email.trim(), password: f.clave,
-          options: { data: { nombre: f.nombre.trim(), instrumento: f.instrumento || '', solicita }, emailRedirectTo: baseUrl() },
+          options: { data: { nombre: f.nombre.trim(), instrumento: f.instrumento || '', solicita, ...(mentor ? { mentor } : {}) }, emailRedirectTo: baseUrl() },
         });
         if (error) msg(/already registered/i.test(error.message) ? 'Ese correo ya tiene cuenta. Usa "Entrar".'
           : /rate limit/i.test(error.message) ? 'Hay muchos registros seguidos. Espera unos minutos e inténtalo de nuevo.' : error.message);
-        else if (!data.session) vistaAuth('login', { txt: 'Te enviamos un correo para confirmar tu cuenta. Después entra aquí; un administrador debe aprobarte.' }, pre);
+        else if (!data.session) vistaAuth('login', { txt: `Te enviamos un correo para confirmar tu cuenta. Después entra aquí; ${mentor ? 'tu mentor' : 'un administrador'} debe aprobarte.` }, pre);
       } else {
         const { error } = await sb.auth.resetPasswordForEmail(f.email.trim(), { redirectTo: baseUrl() });
         if (error) msg(/rate limit/i.test(error.message) ? 'Se enviaron muchos correos seguidos. Espera unos minutos e inténtalo de nuevo.' : error.message); else msg('Si el correo está registrado, te llegará un enlace para cambiar la contraseña.', false);
@@ -369,7 +371,7 @@ function vistaPendiente(sinModulo = false) {
     <p class="lema">${bloqueado
       ? 'Tu cuenta fue desactivada. Habla con un administrador del equipo.'
       : sinModulo ? `Hola ${esc(st.perfil?.nombre || '')}, tu cuenta está aprobada pero todavía <b>no tienes acceso a ningún ministerio</b>. Avísale a quien te invitó.`
-      : `Hola ${esc(st.perfil?.nombre || '')}, tu cuenta está <b>pendiente de aprobación</b>. Avísale a quien te invitó para que te apruebe.`}</p>
+      : `Hola ${esc(st.perfil?.nombre || '')}, tu cuenta está <b>pendiente de aprobación</b>. ${st.perfil?.invitado_por ? 'Avísale a tu mentor: él o ella te aprueba desde su panel.' : 'Avísale a quien te invitó para que te apruebe.'}`}</p>
     <button class="btn prim blk" id="bRev">Ya me aprobaron</button>
     <button class="btn blk" id="bSalir">Cerrar sesión</button>
   </div>`;

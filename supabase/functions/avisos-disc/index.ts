@@ -133,14 +133,29 @@ async function post(id: string) {
   return 0;
 }
 
-async function solicitud(id: string) {
-  const { data: p } = await sb.from('profiles').select('nombre').eq('id', id).maybeSingle();
+async function quienesAdministran() {
   const [{ data: admins }, { data: pastores }] = await Promise.all([
     sb.from('profiles').select('id').eq('rol', 'admin').eq('estado', 'aprobado'),
     sb.from('modulos_acceso').select('perfil_id').eq('modulo', 'discipulado').eq('rol', 'pastor'),
   ]);
-  const ids = [...(admins ?? []).map((a: any) => a.id), ...(pastores ?? []).map((a: any) => a.perfil_id)];
-  return enviar(ids, 'd_solicitudes', { title: '🔑 Solicitud de acceso', body: `${p?.nombre ?? 'Alguien'} quiere entrar a Discipulado.`, url: '#/d/personas', tag: 'sol-' + id });
+  return [...(admins ?? []).map((a: any) => a.id), ...(pastores ?? []).map((a: any) => a.perfil_id)];
+}
+
+async function solicitud(id: string) {
+  const { data: p } = await sb.from('profiles').select('nombre, invitado_por, estado').eq('id', id).maybeSingle();
+  if (!p || p.estado !== 'pendiente') return 0;
+  // Si se registró con el link de un mentor, le llega solo a ese mentor
+  if (p.invitado_por) {
+    return enviar([p.invitado_por], 'd_solicitudes', { title: '🌱 Quiere ser tu discípulo', body: `${p.nombre ?? 'Alguien'} se registró con tu link. Apruébalo en Mis discípulos.`, url: '#/d/discipulos', tag: 'sol-' + id });
+  }
+  return enviar(await quienesAdministran(), 'd_solicitudes', { title: '🔑 Solicitud de acceso', body: `${p.nombre ?? 'Alguien'} quiere entrar a Discipulado.`, url: '#/d/personas', tag: 'sol-' + id });
+}
+
+async function aprobado(id: string, mentor: string) {
+  const { data: ps } = await sb.from('profiles').select('id, nombre').in('id', [id, mentor]);
+  const nom = (x: string) => (ps ?? []).find((p: any) => p.id === x)?.nombre ?? 'Alguien';
+  const ids = (await quienesAdministran()).filter(x => x !== mentor);
+  return enviar(ids, 'd_solicitudes', { title: '✅ Nuevo discípulo', body: `${primer(nom(mentor))} aprobó a ${nom(id)} como su discípulo.`, url: '#/d/inicio', tag: 'apr-' + id });
 }
 
 async function devocionalDeHoy() {
@@ -184,6 +199,7 @@ Deno.serve(async (req) => {
       case 'comentario': n = await comentario(b.id); break;
       case 'post': n = await post(b.id); break;
       case 'solicitud': n = await solicitud(b.id); break;
+      case 'aprobado': n = await aprobado(b.id, b.mentor); break;
       case 'devocional': n = await devocionalDeHoy(); break;
       case 'racha': n = await racha(); break;
       default: return new Response('Tipo desconocido', { status: 400 });
