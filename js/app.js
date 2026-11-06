@@ -205,15 +205,21 @@ function cerrarModal() { if (dlg.open) dlg.close(); }
 const NOV_KEY = 'arpas.novedades';
 const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem(NOV_KEY) || '[]')); } catch { return new Set(); } };
 const novMarcar = ids => { try { const v = novVistas(); ids.forEach(i => v.add(i)); localStorage.setItem(NOV_KEY, JSON.stringify([...v])); } catch { /* sin almacenamiento */ } };
+// ¿Esta guía o este paso es para mí?
+//  para vacío = todos · 'admin' = administradores · 'miembro' = integrantes de alabanza que no son admin
+//  · 'discipulo' | 'mentor' | 'pastor' = rol en Discipulado
+const paraMi = para => !para?.length || para.includes(discRol())
+  || (para.includes('admin') && esAdmin())
+  || (para.includes('miembro') && tieneAlabanza() && !esAdmin());
 function novedadesMias() {
   return NOVEDADES.filter(n => {
     if (n.modulo === 'discipulado' && !discRol()) return false;
     if (n.modulo === 'alabanza' && !tieneAlabanza()) return false;
-    return !n.para || n.para.includes(discRol()) || (n.para.includes('admin') && esAdmin());
+    return paraMi(n.para);
   });
 }
 const htmlGuia = n => `<p class="ayuda" style="margin-top:0">${esc(n.resumen)}</p>
-  <ol class="guia">${n.pasos.map(p => `<li><b>${esc(p.t)}</b><span>${esc(p.d)}</span></li>`).join('')}</ol>`;
+  <ol class="guia">${n.pasos.filter(p => paraMi(p.para)).map(p => `<li><b>${esc(p.t)}</b><span>${esc(p.d)}</span></li>`).join('')}</ol>`;
 function mostrarNovedades() {
   if (dlg.open || st.perfil?.estado !== 'aprobado') return;
   const desde = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
