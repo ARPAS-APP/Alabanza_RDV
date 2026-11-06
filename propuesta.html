@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="icons/arpas-icon-192.png">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Arpas para Roca de Vida</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: una columna de lectura; menú de funciones a la izquierda + teléfono a la derecha en escritorio, apilados en el celular */
+:root{
+  --bg:#FFFFFF; --surface:#FAF6EA; --vanilla:#F3E8C8; --line:#E6DFCC;
+  --ink:#111010; --muted:#5E5848; --gold:#8A6A1F; --gold-bright:#C9A24D; --gold-soft:#F6EFD9;
+  --ok:#1F7A4D; --ok-soft:#E8F3EC; --plan:#577073; --plan-soft:#E7EDEE;
+  --phone:#111010; --screen:#FFFFFF; --on-dark:#F7F3E8;
+  --display:Manrope, Inter, system-ui, sans-serif; --body:Inter, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141210; --surface:#1D1A16; --vanilla:#2A2419; --line:#35302A;
+  --ink:#F3EEE2; --muted:#B3AA97; --gold:#D9B45E; --gold-bright:#E3C374; --gold-soft:#2E2718;
+  --ok:#5CC08A; --ok-soft:#183223; --plan:#8FB0B3; --plan-soft:#1D2A2C;
+  --phone:#000000; --screen:#1B1815; --on-dark:#F7F3E8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141210; --surface:#1D1A16; --vanilla:#2A2419; --line:#35302A;
+  --ink:#F3EEE2; --muted:#B3AA97; --gold:#D9B45E; --gold-bright:#E3C374; --gold-soft:#2E2718;
+  --ok:#5CC08A; --ok-soft:#183223; --plan:#8FB0B3; --plan-soft:#1D2A2C;
+  --phone:#000000; --screen:#1B1815; --on-dark:#F7F3E8; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:1040px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.02em}
+h1{font-size:clamp(32px,6vw,48px);line-height:1.08;font-weight:800}
+h2{font-size:clamp(24px,4vw,30px);font-weight:700}
+h3{font-size:19px;font-weight:700}
+p{margin:0;max-width:65ch}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+.lead{font-size:18px;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:20px}
+.head{display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:18px}
+.brand svg{color:var(--gold)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:8px}
+.fact{background:var(--surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:2px}
+.fact b{font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums}
+.fact span{font-size:13px;color:var(--muted)}
+
+/* Funciones */
+.funcs{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
+.menu{display:flex;flex-direction:column;gap:6px}
+.menu button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid transparent;min-height:52px}
+.menu button:hover{background:var(--surface)}
+.menu button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.menu button[aria-selected="true"]{background:var(--gold-soft);border-color:var(--gold)}
+.menu .ic{width:36px;height:36px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0}
+.menu button[aria-selected="true"] .ic{background:var(--bg)}
+.menu .tx{display:flex;flex-direction:column;min-width:0;flex:1}
+.menu .tx b{font-size:15px;font-weight:600}
+.menu .tx small{font-size:12px;color:var(--muted)}
+.pill{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{color:var(--ok);background:var(--ok-soft)}
+.pill.plan{color:var(--plan);background:var(--plan-soft)}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+.info{display:flex;flex-direction:column;gap:14px;min-width:0}
+.info ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.who{display:flex;flex-wrap:wrap;gap:6px}
+.who span{font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--surface);color:var(--muted)}
+.meta{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted);align-items:center}
+
+/* Teléfono */
+.phone{width:100%;max-width:300px;aspect-ratio:300/600;background:var(--phone);border-radius:40px;padding:10px;justify-self:center}
+.screen{width:100%;height:100%;background:var(--screen);border-radius:31px;overflow:hidden;display:flex;flex-direction:column;font-size:12px;line-height:1.4}
+.sc-top{padding:22px 16px 10px;display:flex;flex-direction:column;gap:2px}
+.sc-top b{font-family:var(--display);font-size:18px}
+.sc-top span{color:var(--muted);font-size:11px}
+.sc-body{flex:1;overflow:hidden;padding:4px 14px;display:flex;flex-direction:column;gap:8px}
+.sc-nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding:8px 4px 14px;font-size:9px;color:var(--muted);text-align:center}
+.sc-nav .on{color:var(--gold);font-weight:700}
+.c{border:1px solid var(--line);border-radius:12px;padding:9px 10px;display:flex;flex-direction:column;gap:3px}
+.c.dark{background:var(--phone);border-color:var(--phone);color:var(--on-dark)}
+.c.dark small{color:var(--gold-bright)}
+.c.soft{background:var(--surface);border-color:var(--surface)}
+.c small{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.row{display:flex;gap:6px;align-items:center}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.k{border:1px solid var(--line);border-radius:10px;padding:7px;display:flex;flex-direction:column}
+.k b{font-family:var(--display);font-size:16px}
+.k span{font-size:9px;color:var(--muted)}
+.btn{background:var(--gold);color:#FFFFFF;border-radius:8px;padding:5px 9px;font-weight:700;font-size:10px;align-self:flex-start}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold)}
+.chip{font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--gold-soft);color:var(--gold)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.bars{display:flex;align-items:flex-end;gap:5px;height:56px}
+.bars i{flex:1;background:var(--line);border-radius:3px 3px 1px 1px}
+.bars i:last-child{background:var(--gold)}
+.av{width:24px;height:24px;border-radius:7px;background:var(--vanilla);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:9px;flex-shrink:0}
+
+/* Costos */
+.costs{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+.tbl{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 16px;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li label{display:contents;cursor:pointer}
+.li input{width:20px;height:20px;accent-color:var(--gold);margin:0}
+.li .d{display:flex;flex-direction:column;gap:2px;min-width:0}
+.li .d b{font-weight:600;font-size:15px}
+.li .d small{font-size:13px;color:var(--muted)}
+.li .p{font-variant-numeric:tabular-nums;font-weight:700;text-align:right;white-space:nowrap}
+.li .p small{display:block;font-weight:500;font-size:12px;color:var(--muted)}
+.lock{width:20px;height:20px;color:var(--ok);display:flex;align-items:center;justify-content:center}
+.total{background:var(--phone);color:var(--on-dark);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:10px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+.total .big{font-family:var(--display);font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.total .big small{font-size:16px;font-weight:600;color:var(--gold-bright)}
+.total .yr{font-size:15px;color:#E6DFCC}
+.total hr{border:0;border-top:1px solid #3A342A;margin:4px 0;width:100%}
+.total p{font-size:13px;color:#CFC6B3}
+.free{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.free div{background:var(--surface);border-radius:14px;padding:12px 14px;font-size:14px;display:flex;flex-direction:column;gap:2px}
+.free b{font-weight:600}
+.free span{font-size:13px;color:var(--muted)}
+
+/* Tiempo */
+.phases{display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin-left:9px}
+.ph{position:relative;padding:0 0 26px 28px;display:flex;flex-direction:column;gap:6px}
+.ph:last-child{padding-bottom:0}
+.ph::before{content:"";position:absolute;left:-11px;top:2px;width:20px;height:20px;border-radius:50%;background:var(--bg);border:2px solid var(--gold)}
+.ph.done::before{background:var(--ok);border-color:var(--ok)}
+.ph .w{font-size:13px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+.ph.done .w{color:var(--ok)}
+.ph ul{margin:0;padding-left:18px;color:var(--muted);font-size:15px}
+.gantt{display:flex;flex-direction:column;gap:8px;overflow-x:auto}
+.gr{display:grid;grid-template-columns:150px repeat(12,minmax(22px,1fr));gap:3px;align-items:center;font-size:12px;min-width:520px}
+.gr span{color:var(--muted)}
+.gr i{height:14px;border-radius:4px;background:var(--surface)}
+.gr i.on{background:var(--gold)}
+.gr i.pilot{background:var(--gold-bright)}
+.gr.hd i{background:none;height:auto;font-style:normal;font-size:10px;color:var(--muted);text-align:center}
+.note{background:var(--surface);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.note ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.ask{border:1px solid var(--gold);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:12px;background:var(--gold-soft)}
+.ask ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+footer{font-size:12px;color:var(--muted)}
+
+@media (max-width:820px){
+  .funcs,.detail,.costs{grid-template-columns:minmax(0,1fr)}
+  .menu{flex-direction:row;overflow-x:auto;padding-bottom:6px}
+  .menu button{flex:0 0 auto;min-width:200px}
+  .total{position:static}
+}
+@media (prefers-reduced-motion:no-preference){.detail{animation:none}}
+
+/* Módulos en acordeón */
+.legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.legend button{margin-left:auto;font:inherit;font-size:14px;font-weight:600;color:var(--gold);background:none;border:1px solid var(--gold);border-radius:999px;min-height:40px;padding:0 16px;cursor:pointer}
+.pill.prop{color:var(--gold);background:var(--gold-soft)}
+.mods{display:flex;flex-direction:column;gap:10px}
+.mod{border:1px solid var(--line);border-radius:18px;background:var(--bg)}
+.mod[open]{border-color:var(--gold)}
+.mod summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:60px}
+.mod summary::-webkit-details-marker{display:none}
+.mod summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:18px}
+.mod .ic{width:38px;height:38px;border-radius:11px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0}
+.mod .tx{display:flex;flex-direction:column;min-width:0;flex:1}
+.mod .tx b{font-size:16px;font-weight:700;font-family:var(--display)}
+.mod .tx small{font-size:13px;color:var(--muted)}
+.mod .chev{color:var(--muted);display:flex;transition:transform .2s}
+.mod[open] .chev{transform:rotate(180deg)}
+@media (max-width:520px){.mod summary .pill{display:none}}
+.mbody{padding:4px 16px 20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.mbody .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted);align-items:center}
+.shots-h{display:flex;align-items:baseline;gap:10px}
+.shots-h b{font-size:15px}
+.swipe{font-size:13px;color:var(--muted)}
+.track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 10px;-webkit-overflow-scrolling:touch}
+.track:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:12px}
+.shot{flex:0 0 250px;margin:0;scroll-snap-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.shot figcaption{font-size:13px;font-weight:600;color:var(--muted)}
+.shot .phone{width:250px;max-width:100%}
+@media (min-width:880px){.swipe{display:none}.track{justify-content:center}}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:820px){.cols{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.col h4{margin:6px 0 0;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.col ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:15px}
+.col ul.no{color:var(--muted)}
+.roles{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.roles div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-top:1px solid var(--line);font-size:14px}
+.roles div:first-child{border-top:0}
+.roles span{color:var(--muted)}
+.ej{background:var(--surface);border-radius:12px;padding:12px 14px;font-size:15px}
+/* Piezas de las pantallas */
+.chip.off{background:var(--surface);color:var(--muted)}
+.chip.warn{background:#FBEDEB;color:#B3362C}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--gold)}
+.okc{width:44px;height:44px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.sw{width:28px;height:16px;border-radius:999px;background:var(--line);padding:2px;display:flex}
+.sw i{width:12px;height:12px;border-radius:50%;background:#FFFFFF}
+.sw.on{background:var(--ok);justify-content:flex-end}
+.tb .tr{display:grid;grid-template-columns:1.4fr 1fr 1fr;font-size:10px}
+.tb .tr span{padding:6px;border-top:1px solid var(--line)}
+.tb .tr:first-child span{border-top:0;background:var(--surface)}
+.steps{display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin-left:6px}
+.st{position:relative;padding:0 0 12px 14px;display:flex;flex-direction:column}
+.st::before{content:"";position:absolute;left:-6px;top:2px;width:10px;height:10px;border-radius:50%;background:var(--screen);border:2px solid var(--line)}
+.st.done::before{background:var(--ok);border-color:var(--ok)}
+.st span{color:var(--muted);font-size:10px}
+.bub{align-self:flex-start;background:var(--surface);border-radius:12px 12px 12px 4px;padding:7px 10px;max-width:80%}
+.bub.me{align-self:flex-end;background:var(--gold);color:#FFFFFF;border-radius:12px 12px 4px 12px}
+.name-note{background:var(--gold-soft);border:1px solid var(--gold);border-radius:16px;padding:14px 16px;font-size:15px;max-width:65ch}
+.pwa{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:820px){.pwa{grid-template-columns:minmax(0,1fr)}}
+.pwa-steps{display:flex;flex-direction:column;gap:14px;min-width:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-radius:12px;padding:4px;gap:4px;max-width:320px}
+.seg button{font:inherit;font-size:14px;font-weight:600;min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 2px rgba(17,16,16,.15)}
+.seg button:focus-visible{outline:2px solid var(--gold)}
+.steps-l{margin:0;padding:0;list-style:none;counter-reset:p;display:flex;flex-direction:column;gap:12px}
+.steps-l li{counter-increment:p;display:grid;grid-template-columns:32px minmax(0,1fr);column-gap:12px}
+.steps-l li::before{content:counter(p);grid-row:span 2;width:32px;height:32px;border-radius:50%;background:var(--gold);color:#FFFFFF;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--display)}
+.steps-l b{font-size:15px}
+.steps-l span{font-size:14px;color:var(--muted)}
+.pwa-cmp{display:flex;flex-direction:column;gap:12px;min-width:0}
+.cmp-col{border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.cmp-col.good{background:var(--ok-soft);border-color:var(--ok-soft)}
+.cmp-col h4{margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.cmp-col.good h4{color:var(--ok)}
+.cmp-col ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:15px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2c0 6 4 9 8 10v6"/><path d="M10 9v12M14 13v8"/></svg>
+      Arpas
+    </div>
+    <span class="eyebrow">Propuesta para el pastor · Roca de Vida Panamá</span>
+    <h1>Una sola app para toda la iglesia</h1>
+    <p class="lead">Arpas ya se usa hoy en el ministerio de alabanza, y el módulo de discipulado ya está construido aunque todavía no se usa. La propuesta es abrirla a toda la iglesia: un muro con la información general, cada ministerio con su espacio, solicitudes en un solo lugar y un panel para que usted y los líderes vean cómo va todo. Cada persona ve solo lo que le corresponde según su rol.</p>
+    <div class="name-note"><b>El nombre lo decide la iglesia.</b> Arpas es el nombre del sistema, pero para la congregación puede llamarse Roca de Vida, con el logo y los colores de la iglesia en la pantalla de inicio, en el ícono del celular y en los correos. Las pantallas de esta página muestran "Roca de Vida" en el muro para que vea cómo quedaría.</div>
+    <div class="facts">
+      <div class="fact"><b>9</b><span>ministerios, más Discipulado</span></div>
+      <div class="fact"><b>≈ 400</b><span>personas que la usarían</span></div>
+      <div class="fact"><b id="f-mes">$25</b><span>al mes en servicios</span></div>
+      <div class="fact"><b>≈ 1 mes</b><span>para tenerla en toda la iglesia</span></div>
+    </div>
+  </header>
+
+  <section aria-labelledby="t-func">
+    <div class="head">
+      <span class="eyebrow">Qué hace</span>
+      <h2 id="t-func">Función por función</h2>
+      <p>Toque cada módulo para abrirlo. Verá sus pantallas (deslice con el dedo), qué incluye, quién ve qué y un ejemplo de uso. Los nombres y números son de ejemplo.</p>
+      <div class="legend"><span class="pill ok">Ya funciona</span><span class="pill prop">Construido · sin usar</span><span class="pill plan">Por construir</span><button type="button" id="toggle-all">Abrir todas</button></div>
+    </div>
+    <div class="mods" id="mods"></div>
+  </section>
+
+  <section aria-labelledby="t-cost">
+    <div class="head">
+      <span class="eyebrow">Qué se necesita económicamente</span>
+      <h2 id="t-cost">Costos de los servicios</h2>
+      <p>No hay que comprar equipos ni contratar una empresa. Lo que sí cuesta es el servicio en la nube que guarda los datos de forma segura. Marque o desmarque lo opcional y el total se actualiza. Precios en dólares, revisados en noviembre de 2026.</p>
+    </div>
+    <div class="costs">
+      <div class="tbl" id="costos"></div>
+      <aside class="total" aria-live="polite">
+        <span class="eyebrow" style="color:var(--gold-bright)">Total estimado</span>
+        <div class="big" id="t-mes">$25 <small>/ mes</small></div>
+        <div class="yr" id="t-anio">≈ $300 al año</div>
+        <hr>
+        <p>Equivale a menos de $0.10 al mes por persona si la usan 400 personas.</p>
+        <p>Si el presupuesto se aprueba por año, conviene reservar el monto anual completo.</p>
+      </aside>
+    </div>
+    <div class="head" style="gap:10px">
+      <h3>Lo que no cuesta</h3>
+      <div class="free">
+        <div><b>Publicar la app</b><span>GitHub Pages, gratis</span></div>
+        <div><b>Dominio</b><span>Se usa el que la iglesia ya tiene</span></div>
+        <div><b>Notificaciones al celular</b><span>Incluidas, sin costo por envío</span></div>
+        <div><b>Instalarla en el celular</b><span>Se instala desde el navegador. No pasa por App Store ni Play Store</span></div>
+        <div><b>Copia de datos en Excel</b><span>Hoja en Google Drive, con una cuenta gratuita</span></div>
+        <div><b>Respaldo completo</b><span>En el NAS que ya tenemos</span></div>
+        <div><b>Desarrollo</b><span>Se hace dentro de la iglesia, sin contratar una empresa</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-pwa">
+    <div class="head">
+      <span class="eyebrow">Sin App Store ni Play Store</span>
+      <h2 id="t-pwa">Se instala desde un enlace</h2>
+      <p>La app funciona como una "app web instalable". Se comparte un enlace y cada persona la agrega a la pantalla de inicio de su celular. Queda con su ícono, se abre a pantalla completa como cualquier app y recibe notificaciones. No hay que publicarla en las tiendas ni pagar por eso.</p>
+    </div>
+    <div class="pwa">
+      <div class="pwa-steps">
+        <div class="seg" role="tablist" aria-label="Tipo de celular">
+          <button type="button" role="tab" id="os-ios" aria-selected="true">iPhone</button>
+          <button type="button" role="tab" id="os-and" aria-selected="false">Android</button>
+        </div>
+        <ol class="steps-l" id="pasos-ios">
+          <li><b>Abrir el enlace en Safari</b><span>El enlace se comparte por WhatsApp, en el muro o con un código QR en la pantalla del culto.</span></li>
+          <li><b>Tocar el botón Compartir</b><span>El cuadrado con la flecha hacia arriba, abajo en la pantalla.</span></li>
+          <li><b>Elegir "Agregar a inicio"</b><span>Aparece el ícono de la iglesia en la pantalla del celular.</span></li>
+          <li><b>Abrirla desde el ícono y permitir avisos</b><span>Así llegan las notificaciones. En iPhone se necesita iOS 16.4 o más reciente.</span></li>
+        </ol>
+        <ol class="steps-l" id="pasos-and" hidden>
+          <li><b>Abrir el enlace en Chrome</b><span>El enlace se comparte por WhatsApp, en el muro o con un código QR en la pantalla del culto.</span></li>
+          <li><b>Tocar "Instalar app"</b><span>Aparece un aviso abajo, o en el menú de los tres puntos.</span></li>
+          <li><b>Confirmar</b><span>El ícono queda junto a las demás apps del celular.</span></li>
+          <li><b>Abrirla y permitir avisos</b><span>Las notificaciones llegan igual que en una app de la tienda.</span></li>
+        </ol>
+      </div>
+      <div class="pwa-cmp">
+        <div class="cmp-col good"><h4>Ventajas</h4><ul>
+          <li>$0: no se paga a Apple ni a Google</li>
+          <li>Las mejoras llegan a todos al instante, sin esperar la revisión de las tiendas</li>
+          <li>Funciona en iPhone, Android y computadora con un solo enlace</li>
+          <li>Ocupa muy poco espacio en el celular</li>
+          <li>Es la misma forma en que ya funciona el ministerio de alabanza</li></ul></div>
+        <div class="cmp-col"><h4>A tener en cuenta</h4><ul>
+          <li>No aparece si alguien la busca en la tienda; se llega por el enlace o el código QR</li>
+          <li>En iPhone hay que agregarla a inicio para recibir notificaciones</li>
+          <li>Algunas personas mayores pueden necesitar ayuda la primera vez; se puede tener una mesa de apoyo un domingo</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-tiendas">
+    <div class="head">
+      <span class="eyebrow">Si en el futuro se quiere</span>
+      <h2 id="t-tiendas">Costos de publicar en las tiendas</h2>
+      <p>No es necesario para empezar. Si más adelante la iglesia quiere que aparezca en App Store o Play Store, se puede empaquetar la misma app. Elija las opciones para ver el costo.</p>
+    </div>
+    <div class="costs">
+      <div class="tbl">
+        <div class="li"><input type="checkbox" id="st-and" checked><div class="d"><b><label for="st-and">Google Play (Android)</label></b><small>Pago único de la cuenta. Como organización se pide un número D-U-N-S, que es gratis pero puede tardar varios días.</small></div><div class="p">$25<small>una vez</small></div></div>
+        <div class="li"><input type="checkbox" id="st-ios" checked><div class="d"><b><label for="st-ios">App Store (iPhone)</label></b><small>Membresía de Apple Developer, se renueva cada año.</small></div><div class="p">$99<small>al año</small></div></div>
+        <div class="li"><input type="checkbox" id="st-waiver"><div class="d"><b><label for="st-waiver">Exención de Apple para organizaciones sin fines de lucro</label></b><small>Apple puede eximir el pago si la iglesia está reconocida legalmente como organización sin fines de lucro y no vende nada en la app. Hay que solicitarla y Apple decide.</small></div><div class="p">−$99<small>al año</small></div></div>
+        <div class="li"><span class="lock"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div class="d"><b>Preparar la app para las tiendas</b><small>Se empaqueta con herramientas gratuitas. Para iPhone se necesita una Mac prestada o un servicio de compilación en la nube con plan gratis.</small></div><div class="p">$0</div></div>
+      </div>
+      <aside class="total" aria-live="polite">
+        <span class="eyebrow" style="color:var(--gold-bright)">Costo de las tiendas</span>
+        <div class="big" id="st-1">$124 <small>primer año</small></div>
+        <div class="yr" id="st-2">$99 cada año después</div>
+        <hr>
+        <p>Se suma a los $25 al mes de los servicios, que no cambian.</p>
+        <p>Tiempo: 2 a 3 semanas, por la creación de cuentas y la revisión de cada tienda.</p>
+      </aside>
+    </div>
+    <div class="note">
+      <b>Antes de decidirlo</b>
+      <ul>
+        <li>Cada actualización importante pasa por la revisión de las tiendas, que puede tardar de uno a varios días.</li>
+        <li>Apple pide que la app ofrezca más que un sitio web empaquetado. Las notificaciones y el calendario ayudan, pero la aprobación no está garantizada.</li>
+        <li>Las cuentas deberían estar a nombre de la iglesia, no de una persona, para que no se pierdan si alguien deja de servir.</li>
+        <li>Se puede empezar solo con Android ($25 una vez) y dejar iPhone con el enlace.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-time">
+    <div class="head">
+      <span class="eyebrow">Tiempo estimado</span>
+      <h2 id="t-time">Construida en unos 8 días, en toda la iglesia en un mes</h2>
+      <p>La construcción va rápido porque Gabriela trabaja con un asistente de inteligencia artificial (Claude) que escribe y revisa el código con ella. Lo que toma más tiempo es la parte humana: probar con los líderes y enseñar a la congregación. Los días cuentan desde que se apruebe el presupuesto.</p>
+    </div>
+    <div class="gantt" role="img" aria-label="Calendario de 4 semanas: construcción en la semana 1 y parte de la 2, piloto en las semanas 2 y 3, toda la iglesia en la semana 4">
+      <div class="gr hd"><span></span><i>S1</i><i></i><i></i><i>S2</i><i></i><i></i><i>S3</i><i></i><i></i><i>S4</i><i></i><i></i></div>
+      <div class="gr"><span>Construir (8 días)</span><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="gr"><span>Piloto con 3 ministerios</span><i></i><i></i><i></i><i></i><i class="pilot"></i><i class="pilot"></i><i class="pilot"></i><i class="pilot"></i><i class="pilot"></i><i></i><i></i><i></i></div>
+      <div class="gr"><span>Toda la iglesia</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+    </div>
+    <div class="phases">
+      <div class="ph done"><span class="w">Ya está</span><h3>Alabanza en uso y Discipulado construido</h3><ul><li>Turnos, canciones, chat, calendario y notificaciones del ministerio de alabanza (en uso)</li><li>Discipulado: devocionales, muro, mentorías, retos y Biblia (listo, sin usar todavía)</li></ul></div>
+      <div class="ph"><span class="w">Días 1–2</span><h3>Base, nombre y muro de la iglesia</h3><ul><li>Plan de la nube y correo con el dominio de la iglesia</li><li>Nombre, logo y colores (Arpas o Roca de Vida)</li><li>Roles: Pastor, Administración, Líder, Servidor, Miembro</li><li>Muro general con avisos, eventos y "se necesita ayuda"</li></ul></div>
+      <div class="ph"><span class="w">Días 3–5</span><h3>Ministerios, reportes y panel pastoral</h3><ul><li>Cada ministerio con su espacio según su tipo</li><li>Reporte semanal del líder</li><li>Panel pastoral y seguimiento de personas nuevas</li></ul></div>
+      <div class="ph"><span class="w">Días 6–7</span><h3>Solicitudes y administración</h3><ul><li>Pedir y aprobar espacios, compras, eventos, acceso y apoyo</li><li>Pantalla para asignar roles y activar ministerios</li></ul></div>
+      <div class="ph"><span class="w">Día 8</span><h3>Datos y respaldos</h3><ul><li>Copia diaria a Google Sheets y respaldo en el NAS</li><li>Revisión final de permisos: que cada rol vea solo lo suyo</li></ul></div>
+      <div class="ph"><span class="w">Semanas 2–3</span><h3>Piloto</h3><ul><li>Prueba con Células, Hospitalidad y Talmid</li><li>Ajustes según lo que digan los líderes, el mismo día</li></ul></div>
+      <div class="ph"><span class="w">Semana 4</span><h3>Abrirla a toda la iglesia</h3><ul><li>Se suman los demás ministerios</li><li>Explicación breve a los líderes y anuncio en la reunión familiar</li></ul></div>
+    </div>
+    <div class="note">
+      <b>Qué puede mover las fechas</b>
+      <ul>
+        <li>Los días de construcción son días de trabajo; se hacen junto con otras responsabilidades.</li>
+        <li>El piloto depende de que los líderes la usen y den sus comentarios a tiempo.</li>
+        <li>Si se piden funciones nuevas en el camino, se agregan después del lanzamiento para no atrasarlo.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="ask" aria-labelledby="t-ask">
+    <h2 id="t-ask">Lo que se necesita para empezar</h2>
+    <ol>
+      <li>Su aprobación para usar Arpas en toda la iglesia.</li>
+      <li>El presupuesto de servicios: unos <b id="t-ask-anio">$300 al año</b>.</li>
+      <li>Decidir el nombre: Arpas o Roca de Vida.</li>
+      <li>Nombrar quiénes tendrán el rol de Administración.</li>
+      <li>Elegir los ministerios del piloto y que sus líderes acepten probarla.</li>
+    </ol>
+  </section>
+
+  <footer>Precios de Supabase y Resend revisados en sus páginas en noviembre de 2026. Pueden cambiar. Las pantallas son un prototipo con datos de ejemplo.</footer>
+</div>
+
+<script>
+(function(){
+  var I = {
+    home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5a5 5 0 0 1 5.5 5"/>',
+    check:'<path d="M9 4h6l1 2h3v15H5V6h3z"/><path d="M9 12l2 2 4-4"/>',
+    sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    book:'<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
+    music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/>',
+    sheet:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>'
+  };
+  function ic(n,s){return '<svg width="'+(s||20)+'" height="'+(s||20)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+I[n]+'</svg>';}
+  function nav(on){var t=['Iglesia','Ministerios','Solicitudes','Admin'];return '<div class="sc-nav">'+t.map(function(x,i){return '<span class="'+(i===on?'on':'')+'">'+x+'</span>';}).join('')+'</div>';}
+  function scr(t,s,body,on){return '<div class="phone" aria-hidden="true"><div class="screen"><div class="sc-top"><b>'+t+'</b><span>'+s+'</span></div><div class="sc-body">'+body+'</div>'+(on===null?'':nav(on))+'</div></div>';}
+
+  function r(cells){return '<div class="tr">'+cells.map(function(c){return '<span>'+c+'</span>';}).join('')+'</div>';}
+  function field(l,v){return '<div class="c"><small>'+l+'</small><span>'+v+'</span></div>';}
+  function tog(l,on){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">'+l+'</span><span class="sw'+(on?' on':'')+'"><i></i></span></div>';}
+  function line(a,b,ch){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span style="flex:1">'+a+(b?'<br><span style="color:var(--muted);font-size:10px">'+b+'</span>':'')+'</span>'+(ch||'')+'</div>';}
+
+  var F = [
+    {id:'muro',n:'Muro de la iglesia',s:'Avisos y eventos para todos',ic:'home',st:'plan',fase:'Días 1–2',
+     d:'Un solo lugar con la información general de la iglesia. Reemplaza los avisos que hoy se pierden en grupos de WhatsApp. El pastor fija lo importante arriba y cada ministerio publica sus eventos y cuando necesita servidores.',
+     sc:[
+      ['Inicio del muro', scr('Roca de Vida','Para toda la iglesia','<div class="c dark"><small>Fijado · Pastoral</small><b>Ayuno congregacional</b><span style="opacity:.8">Lun 10 al mié 12 de noviembre</span><span class="btn" style="background:var(--gold-bright);color:#111010">Me uno al ayuno</span></div><div class="grid3"><div class="k"><span>DOM 8</span><b style="font-size:10px">Reunión familiar</b><span>10:30 a.m.</span></div><div class="k"><span>MIÉ 11</span><b style="font-size:10px">Estudio bíblico</b><span>8:00 p.m.</span></div><div class="k"><span>SÁB 14</span><b style="font-size:10px">Mujeres</b><span>9:00 a.m.</span></div></div><div class="row" style="flex-wrap:wrap"><span class="chip">Todo</span><span class="chip off">Avisos</span><span class="chip off">Eventos</span><span class="chip off">Ayuda</span></div><div class="c"><div class="row"><span class="av">HO</span><b style="flex:1">Hospitalidad</b><span class="chip">Ayuda</span></div><b>6 servidores para el domingo 23</b><span class="btn">Me apunto</span></div>',0)],
+      ['Detalle de un evento', scr('Retiro de jóvenes','Talmid 15–21','<div class="c soft" style="height:70px;justify-content:flex-end"><small>Foto del evento</small></div>'+field('Fecha','Sáb 28 y dom 29 de noviembre')+field('Lugar','Por confirmar')+'<div class="c"><small>Cupos</small><div class="meter"><i style="width:80%"></i></div><span>32 de 40 inscritos</span></div><span class="btn" style="align-self:stretch;text-align:center;padding:8px">Inscribirme</span><span class="btn ghost" style="align-self:stretch;text-align:center;padding:8px">Agregar a mi calendario</span>',0)],
+      ['Publicar (líder)', scr('Nueva publicación','Hospitalidad','<div class="c"><small>Tipo</small><div class="row"><span class="chip off">Aviso</span><span class="chip off">Evento</span><span class="chip">Se necesita ayuda</span></div></div>'+field('Título','Servidores para el domingo 23')+field('Cuántas personas','6')+'<div class="c"><small>Quién lo ve</small><div class="row"><span class="chip">Toda la iglesia</span><span class="chip off">Solo mi ministerio</span></div></div><div class="c soft"><small>Adjuntar</small><span>Foto o PDF</span></div><span class="btn" style="align-self:stretch;text-align:center;padding:8px">Publicar</span>',null)]
+     ],
+     inc:['Avisos, eventos y "se necesita ayuda"','Eventos con cupo, inscripción y lista de inscritos','Botón para agregar el evento al calendario del celular','Aviso fijado del pastor siempre arriba','Fotos y PDF en cada publicación','Reacción "Amén" y filtros por tipo','Notificación al celular cuando hay algo nuevo'],
+     no:['Chat abierto entre todos los miembros','Comentarios públicos (se pueden activar después si se desea)'],
+     ej:'Hospitalidad necesita 6 personas para los bautismos. La líder publica en el muro, seis personas tocan "Me apunto" y ella ve la lista completa sin escribirle a nadie uno por uno.',
+     who:[['Pastor','Publica, fija avisos y puede quitar cualquier publicación'],['Administración','Publica avisos generales'],['Líder','Publica eventos y pedidos de su ministerio'],['Servidor y miembro','Leen, reaccionan, se inscriben y se apuntan']]},
+
+    {id:'min',n:'Mis ministerios',s:'Cada ministerio con su espacio',ic:'grid',st:'plan',fase:'Días 3–5',
+     d:'Cada persona ve solo los ministerios donde participa y cambia entre ellos con un toque. Cada ministerio trae las herramientas que necesita según cómo funciona.',
+     sc:[
+      ['Mis ministerios', scr('Mis ministerios','Hola, Ana','<div class="c soft"><small>Turnos</small><div class="row"><b style="flex:1">Alabanza</b><span class="chip ok">Dom 8</span></div></div><div class="c soft"><small>Grupos</small><div class="row"><b style="flex:1">Célula Betania</b><span class="chip">Líder</span></div></div><div class="c soft"><small>Formación</small><div class="row"><b style="flex:1">Academia · Doctrina</b><span class="chip">Clase 4/8</span></div></div><div class="c soft"><small>Grupos</small><div class="row"><b style="flex:1">Ministerio de Mujeres</b><span class="chip off">Miembro</span></div></div>',1)],
+      ['Un grupo (Células)', scr('Célula Betania','Martes 7:30 p.m. · 11 miembros','<div class="grid3"><div class="k"><b>11</b><span>Miembros</span></div><div class="k"><b>9</b><span>Promedio</span></div><div class="k"><b style="color:var(--ok)">2</b><span>Nuevos</span></div></div><div class="c"><small>Asistencia de hoy</small>'+line('Rosa Díaz','Nueva','<span class="chip ok">Vino</span>')+line('Luis Gómez','','<span class="chip ok">Vino</span>')+line('Marta Ruiz','','<span class="chip off">No vino</span>')+'</div><span class="btn" style="align-self:stretch;text-align:center;padding:8px">Hacer el reporte</span>',1)],
+      ['Un curso (Academia)', scr('Doctrina','Academia Roca de Vida','<div class="c"><small>Tu avance</small><div class="meter"><i style="width:50%"></i></div><span>Clase 4 de 8 · Asistencia 100%</span></div><div class="c"><small>Materiales</small>'+line('Clase 4 · La gracia','PDF','<span class="chip">Abrir</span>')+line('Clase 3 · El pecado','PDF','<span class="chip off">Visto</span>')+'</div><div class="c soft"><small>Próxima clase</small><b>Domingo 8 · 1:00 p.m.</b></div><div class="c soft"><small>Al terminar</small><span>Certificado de Doctrina</span></div>',1)]
+     ],
+     inc:['Turnos (Alabanza, Audiovisuales, Hospitalidad): calendario, disponibilidad e intercambio de turnos','Grupos (Células, Talmid, Mujeres, Hombres): miembros, asistencia y seguimiento de nuevos','Formación (Academia: Roca Kids, Nuevo Inicio, Doctrina, Liderazgo): cursos, clases, materiales y avance','Acción social (Bendecido para Bendecir): voluntarios y ayudas entregadas, en privado','Roca Kids: solo asistencia y contacto de los padres','Una persona puede estar en varios ministerios a la vez'],
+     no:['Datos médicos o de salud','Cuentas propias para niños'],
+     ej:'Ana es líder de la célula Betania, canta en Alabanza y estudia Doctrina. Abre Arpas y ve las tres cosas. En Alabanza solo ve su turno; en la célula, como líder, ve la lista de asistencia.',
+     who:[['Líder','Administra miembros, asistencia, materiales y quién entra'],['Servidor','Ve su turno, su grupo o su curso'],['Miembro','Puede pedir unirse a un ministerio']]},
+
+    {id:'rep',n:'Reporte del líder',s:'Menos de un minuto',ic:'users',st:'plan',fase:'Días 3–5',
+     d:'Después de cada reunión el líder llena un reporte corto desde el celular. Así el pastor tiene la información al día sin hojas de papel ni mensajes sueltos.',
+     sc:[
+      ['Llenar el reporte', scr('Reporte','Célula Betania · martes 4','<div class="grid2"><span class="btn" style="text-align:center;align-self:stretch">Sí, nos reunimos</span><span class="btn ghost" style="text-align:center;align-self:stretch">No hubo</span></div><div class="c"><div class="row"><b style="flex:1">Asistentes</b><span class="chip off">−</span><b style="font-size:15px">9</b><span class="chip">+</span></div></div><div class="c"><div class="row"><b style="flex:1">Personas nuevas</b><span class="chip off">−</span><b style="font-size:15px">1</b><span class="chip">+</span></div></div>'+field('Tema','Permanecer en la vid · Juan 15')+field('Para el pastor (privado)','Orar por la familia Gómez')+'<span class="btn" style="align-self:stretch;text-align:center;padding:8px">Enviar reporte</span>',null)],
+      ['Reporte enviado', scr('Reporte','Célula Betania','<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px 0;text-align:center"><span class="okc">'+ic('check',22)+'</span><b style="font-size:15px">Reporte enviado</b><span style="color:var(--muted)">9 asistentes y 1 persona nueva. Ya aparece en el panel del pastor.</span></div><div class="c soft"><small>Seguimiento</small><span>Rosa Díaz quedó en la lista de nuevos. Le llega un mensaje de bienvenida.</span></div>',null)],
+      ['Historial del líder', scr('Mis reportes','Célula Betania','<div class="c soft"><small>Asistencia · 8 semanas</small><div class="bars"><i style="height:55%"></i><i style="height:60%"></i><i style="height:50%"></i><i style="height:65%"></i><i style="height:60%"></i><i style="height:70%"></i><i style="height:75%"></i><i style="height:80%"></i></div></div>'+line('Martes 4 nov','9 asistentes · 1 nuevo','<span class="chip ok">Enviado</span>')+line('Martes 28 oct','8 asistentes','<span class="chip ok">Enviado</span>')+line('Martes 21 oct','No hubo reunión','<span class="chip off">Sin reunión</span>'),null)]
+     ],
+     inc:['Reporte semanal con botones, sin escribir mucho','Recordatorio automático al líder si no lo envía','Las personas nuevas pasan a una lista de seguimiento','Peticiones privadas que solo lee el pastor','Historial y gráfica para el propio líder','Sirve para Células, Talmid, Mujeres, Hombres y Academia'],
+     no:['Finanzas u ofrendas del grupo'],
+     ej:'El martes a las 9:00 p.m., al terminar la célula, Ana llena el reporte en 40 segundos. El miércoles por la mañana el pastor ya lo ve en su panel, con la persona nueva lista para darle seguimiento.',
+     who:[['Líder','Envía y edita sus reportes'],['Pastor','Lee todos, incluidas las peticiones privadas'],['Administración','Ve los números, no las peticiones privadas']]},
+
+    {id:'pastor',n:'Panel pastoral',s:'Cómo va cada ministerio',ic:'chart',st:'plan',fase:'Días 3–5',
+     d:'Un resumen para el pastor con la semana, el mes y los últimos 6 meses. Avisa cuando un grupo no reportó y muestra a las personas nuevas para que nadie se quede sin seguimiento.',
+     sc:[
+      ['Resumen de la semana', scr('Panel pastoral','Semana del 2 al 8 de noviembre','<div class="row"><span class="chip">Semana</span><span class="chip off">Mes</span><span class="chip off">6 meses</span></div><div class="grid3"><div class="k"><b>412</b><span>Asistencia</span></div><div class="k"><b style="color:var(--ok)">18</b><span>Nuevos</span></div><div class="k"><b>96%</b><span>Reportes</span></div></div><div class="c soft"><small>Últimas 8 semanas</small><div class="bars"><i style="height:60%"></i><i style="height:58%"></i><i style="height:66%"></i><i style="height:64%"></i><i style="height:70%"></i><i style="height:80%"></i><i style="height:76%"></i><i style="height:82%"></i></div></div><div class="c"><div class="row"><b style="flex:1">Células</b><span class="chip warn">4 sin reporte</span></div></div><div class="c"><div class="row"><b style="flex:1">Talmid 15–21</b><span class="chip ok">+5 nuevos</span></div></div>',null)],
+      ['Detalle de un ministerio', scr('Células','31 grupos · semana actual','<div class="grid3"><div class="k"><b>27</b><span>Reunidos</span></div><div class="k"><b>184</b><span>Asistentes</span></div><div class="k"><b style="color:var(--ok)">12</b><span>Nuevos</span></div></div>'+line('Célula Betania','Ana Martínez · 9 asist.','<span class="chip ok">Reportó</span>')+line('Célula Emaús','Carlos Rivera','<span class="chip warn">Sin reporte</span>')+line('Célula Siloé','Lucía Méndez · 12 asist.','<span class="chip ok">Reportó</span>')+'<span class="btn" style="align-self:stretch;text-align:center;padding:8px;background:var(--ink);color:var(--bg)">Recordar a los 4 que faltan</span>',null)],
+      ['Personas nuevas', scr('Seguimiento','18 personas nuevas este mes','<div class="row"><span class="chip">Todas</span><span class="chip off">Sin llamar</span></div>'+line('Rosa Díaz','Célula Betania · 4 nov','<span class="chip warn">Sin llamar</span>')+line('Pedro Arias','Reunión familiar · 2 nov','<span class="chip">Llamado</span>')+line('Laura Vega','Talmid 15–21 · 1 nov','<span class="chip ok">En un grupo</span>')+line('Jorge Ríos','Reunión familiar · 26 oct','<span class="chip ok">En Nuevo Inicio</span>'),null)]
+     ],
+     inc:['Asistencia, personas nuevas y servidores activos','Vista de semana, mes y 6 meses','Detalle por ministerio con su tendencia','Alertas de reportes pendientes y recordatorio con un toque','Lista de personas nuevas con su estado de seguimiento','Los números se copian a Excel cada noche'],
+     no:['Datos de diezmos u ofrendas'],
+     ej:'El lunes por la mañana el pastor abre el panel: ve que 4 células no reportaron y les manda un recordatorio con un toque. Luego revisa las 18 personas nuevas y ve que a Rosa todavía nadie la ha llamado.',
+     who:[['Pastor','Todos los ministerios'],['Líder','El mismo panel, solo con su ministerio'],['Administración','Los números generales']]},
+
+    {id:'sol',n:'Solicitudes',s:'Pedir y aprobar en un lugar',ic:'check',st:'plan',fase:'Días 6–7',
+     d:'Todo lo que hoy se pide por mensaje queda registrado: espacios, compras, eventos, acceso a un ministerio o apoyo de otro ministerio. Cada solicitud le llega a quien la debe aprobar, y quien la pidió recibe aviso de la respuesta.',
+     sc:[
+      ['Por revisar', scr('Solicitudes','Vista del pastor','<div class="grid3"><div class="k"><b style="color:#B3362C">6</b><span>Por revisar</span></div><div class="k"><b style="color:var(--ok)">14</b><span>Aprobadas</span></div><div class="k"><b>1.4 d</b><span>Respuesta</span></div></div><div class="c"><div class="row"><span class="chip">Espacio</span><span style="color:var(--muted)">Alabanza</span></div><b>Salón 2 · jueves 13, 7:00 p.m.</b><div class="grid2"><span class="btn ghost" style="text-align:center;align-self:stretch">Rechazar</span><span class="btn" style="text-align:center;align-self:stretch">Aprobar</span></div></div><div class="c"><div class="row"><span class="chip">Compra</span><span style="color:var(--muted)">Audiovisuales</span></div><b>Cables XLR · $85</b><span style="color:var(--muted)">Cotización adjunta</span></div>',2)],
+      ['Hacer una solicitud', scr('Nueva solicitud','Audiovisuales','<div class="c"><small>Tipo</small><div class="row" style="flex-wrap:wrap"><span class="chip off">Espacio</span><span class="chip">Compra</span><span class="chip off">Evento</span><span class="chip off">Apoyo</span></div></div>'+field('Qué se necesita','Cables XLR y adaptadores')+field('Monto','$85.00')+field('Para cuándo','Antes del domingo 16')+'<div class="c soft"><small>Adjunto</small><span>cotizacion.pdf</span></div><span class="btn" style="align-self:stretch;text-align:center;padding:8px">Enviar solicitud</span>',2)],
+      ['Seguimiento de quien pidió', scr('Mi solicitud','Cables XLR · $85','<div class="steps"><div class="st done"><b>Enviada</b><span>Lun 3 nov, 6:10 p.m.</span></div><div class="st done"><b>En revisión</b><span>Administración</span></div><div class="st done"><b>Aprobada</b><span>Mar 4 nov, 9:30 a.m.</span></div><div class="st"><b>Comprada</b><span>Pendiente</span></div></div><div class="c soft"><small>Nota de administración</small><span>Aprobado. Retirar el dinero en la oficina.</span></div>',2)]
+     ],
+     inc:['Tipos: espacios, compras, eventos, acceso y apoyo de otro ministerio','Cada tipo le llega a la persona correcta','Montos, fechas y archivos adjuntos (cotizaciones)','Calendario de salones para evitar dos reuniones a la misma hora','Aviso al celular cuando se aprueba o se rechaza','Historial de todo lo aprobado','Ayudas sociales en privado'],
+     no:['Pagos o transferencias desde la app','La contabilidad de la iglesia'],
+     ej:'El líder de Sonido necesita cables. Llena la solicitud con la cotización. Administración la aprueba al día siguiente y a él le llega el aviso al celular, sin perseguir a nadie por WhatsApp.',
+     who:[['Pastor','Ve y aprueba todas'],['Administración','Aprueba espacios y compras'],['Líder','Pide y ve las de su ministerio'],['Servidor y miembro','Piden unirse a un ministerio']]},
+
+    {id:'adm',n:'Administración y roles',s:'Quién ve qué',ic:'sliders',st:'plan',fase:'Días 6–7',
+     d:'Una sola app con roles distintos. Desde aquí se asignan los roles, se aprueba a quién se registra y se activan o pausan los ministerios.',
+     sc:[
+      ['Roles', scr('Administración','Una sola app · cada quien ve lo suyo','<div class="c"><div class="row"><span class="av" style="background:var(--ink);color:var(--bg)">P</span><b style="flex:1">Pastor</b><span style="color:var(--muted)">2</span></div></div><div class="c"><div class="row"><span class="av">A</span><b style="flex:1">Administración</b><span style="color:var(--muted)">3</span></div></div><div class="c"><div class="row"><span class="av">L</span><b style="flex:1">Líder de ministerio</b><span style="color:var(--muted)">24</span></div></div><div class="c"><div class="row"><span class="av">S</span><b style="flex:1">Servidor</b><span style="color:var(--muted)">118</span></div></div><div class="c"><div class="row"><span class="av">M</span><b style="flex:1">Miembro</b><span style="color:var(--muted)">312</span></div></div>',3)],
+      ['Ficha de una persona', scr('Ana Martínez','Miembro desde 2019','<div class="c"><small>Rol general</small><div class="row"><span class="chip off">Miembro</span><span class="chip off">Servidor</span><span class="chip">Líder</span></div></div><div class="c"><small>Ministerios</small>'+line('Células','Líder de Betania','<span class="chip">Líder</span>')+line('Alabanza','Voz','<span class="chip off">Servidor</span>')+line('Mujeres','','<span class="chip off">Miembro</span>')+'</div><span class="btn ghost" style="align-self:stretch;text-align:center;padding:8px">Agregar a un ministerio</span>',3)],
+      ['Ministerios y ajustes', scr('Ministerios','9 activos','<div class="c">'+tog('Alabanza',1)+tog('Audiovisuales',1)+tog('Células',1)+tog('Talmid',1)+tog('Academia',1)+tog('Discipulado',0)+'</div><div class="c soft"><small>Horarios</small><span>Dom 10:30 a.m. · Mié 8:00 p.m.</span></div>',3)]
+     ],
+     inc:['Asignar roles generales y roles por ministerio','Aprobar o rechazar a quien se registra','Activar o pausar ministerios','Horarios de la iglesia y fecha de cierre de reportes','Ver quién tiene acceso a qué en todo momento'],
+     no:['Contabilidad y finanzas de la iglesia, que siguen en su sistema actual'],
+     ej:'Llega una persona nueva y se registra con el enlace de la iglesia. Administración la aprueba como miembro. Cuando empieza a servir en Hospitalidad, su líder la sube a servidor de ese ministerio.',
+     who:[['Pastor','Todo, incluido nombrar administración y líderes'],['Administración','Personas, registros y ministerios'],['Líder','Quién entra a su ministerio']]},
+
+    {id:'notif',n:'Avisos y calendario',s:'Llegan al celular',ic:'bell',st:'ok',fase:'Ya funciona en Alabanza · se amplía',
+     d:'Las notificaciones al celular y el calendario ya funcionan en el ministerio de alabanza. Se amplían a toda la iglesia, y cada persona elige qué avisos quiere recibir.',
+     sc:[
+      ['Avisos en el celular', scr('9:41','viernes 6 de noviembre','<div class="c soft"><small>Arpas · ahora</small><b>Ayuno congregacional</b><span>El pastor fijó un aviso nuevo</span></div><div class="c soft"><small>Arpas · hace 1 h</small><b>Solicitud aprobada</b><span>Salón 2 para el jueves 13</span></div><div class="c soft"><small>Arpas · ayer</small><b>Recordatorio</b><span>Falta el reporte de la célula Emaús</span></div><div class="c soft"><small>Arpas · ayer</small><b>Te toca el domingo</b><span>Alabanza · voz · 10:30 a.m.</span></div>',null)],
+      ['Qué avisos recibo', scr('Notificaciones','Tú decides qué te llega','<div class="c">'+tog('Avisos del pastor',1)+tog('Eventos nuevos',1)+tog('Mis turnos',1)+tog('Mis solicitudes',1)+tog('Se necesita ayuda',0)+tog('Recordatorio de reporte',1)+'</div>',null)],
+      ['Calendario del celular', scr('Noviembre','Calendario del celular','<div class="c">'+line('Dom 8 · 10:30 a.m.','Reunión familiar · te toca voz')+line('Mar 10','Célula Betania · 7:30 p.m.')+line('Mié 11 · 8:00 p.m.','Estudio bíblico · cierre del ayuno')+line('Sáb 14 · 9:00 a.m.','Reunión de mujeres')+line('Sáb 28','Retiro de jóvenes')+'</div><span style="color:var(--muted);font-size:10px">Se actualiza solo. No hay que anotar nada a mano.</span>',null)]
+     ],
+     inc:['Notificaciones al celular aunque la app esté cerrada','Recordatorio de turnos, reuniones y reportes','Aviso cuando se aprueba una solicitud','Turnos y eventos dentro del calendario del celular (iPhone y Android)','Cada persona elige qué avisos recibe'],
+     no:['Mensajes SMS (tienen costo por mensaje)'],
+     ej:'El viernes el pastor fija el aviso del ayuno. En segundos les llega a todos los que tienen activados los avisos del pastor, sin reenviarlo grupo por grupo.',
+     who:[['Todos','Reciben avisos según su rol y sus ministerios']]},
+
+    {id:'datos',n:'Copia de datos',s:'Excel en Drive y respaldo',ic:'sheet',st:'plan',fase:'Día 8',
+     d:'Cada noche se guarda una copia de las estadísticas en una hoja de Google Drive que se abre en Excel. Aparte, la copia completa de todo va al NAS de la iglesia por si algún día hay que recuperar algo.',
+     sc:[
+      ['Hoja en Google Drive', scr('Arpas · Datos','Google Sheets · actualizado 2:00 a.m.','<div class="c" style="padding:0;overflow:hidden"><div class="tb">'+r(['<b>Grupo</b>','<b>Asist.</b>','<b>Nuevos</b>'])+r(['Betania','9','1'])+r(['Siloé','12','3'])+r(['Canaán','7','0'])+r(['Belén','11','2'])+r(['Emaús','—','—'])+'</div></div><div class="row" style="flex-wrap:wrap"><span class="chip">Asistencia</span><span class="chip off">Personas</span><span class="chip off">Reportes</span><span class="chip off">Solicitudes</span></div>',null)],
+      ['Qué se copia', scr('Qué se copia','Pestañas de la hoja','<div class="c">'+line('Personas por ministerio','Nombre, rol, desde cuándo','<span class="chip ok">Sí</span>')+line('Asistencia','Por grupo y semana','<span class="chip ok">Sí</span>')+line('Reportes','Números, sin peticiones','<span class="chip ok">Sí</span>')+line('Solicitudes','Tipo, monto, estado','<span class="chip ok">Sí</span>')+line('Notas privadas','','<span class="chip warn">No</span>')+line('Ayudas sociales','','<span class="chip warn">No</span>')+'</div>',null)],
+      ['Respaldo en el NAS', scr('Respaldo','NAS de la iglesia','<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 0;text-align:center"><span class="okc">'+ic('check',22)+'</span><b style="font-size:15px">Respaldo completo</b><span style="color:var(--muted)">Anoche, 2:00 a.m.</span></div>'+line('Copias guardadas','Últimos 30 días')+line('Además en la nube','Últimos 7 días'),null)]
+     ],
+     inc:['Hoja de Google Drive que se abre en Excel, actualizada cada noche','Pestañas: personas por ministerio, asistencia, reportes y solicitudes','Respaldo completo cada noche en el NAS','30 días de copias en el NAS y 7 días en la nube'],
+     no:['Notas privadas, peticiones privadas, preguntas anónimas y ayudas sociales','Editar desde la hoja: es solo de consulta, lo que se cambie ahí no cambia la app'],
+     ej:'Para la reunión anual de líderes, administración abre la hoja en Excel, filtra la asistencia del año y arma su gráfica sin pedirle datos a cada líder.',
+     who:[['Pastor','Ve la hoja'],['Administración','Ve la hoja'],['Líderes','No tienen acceso a la hoja; ven lo suyo en la app']]},
+
+    {id:'alab',n:'Ministerio de alabanza',s:'Turnos y canciones',ic:'music',st:'ok',fase:'Ya funciona',
+     d:'La parte con la que empezó Arpas y que ya se usa. Organiza quién canta o toca cada domingo y el repertorio de cada reunión. Es el modelo para los demás ministerios con turnos.',
+     sc:[
+      ['Mi turno', scr('Alabanza','Ministerio de alabanza','<div class="c dark"><small>Domingo 8 · 10:30 a.m.</small><b>Te toca: voz</b><span style="opacity:.8">Ensayo sábado 4:00 p.m.</span></div><div class="c"><small>Equipo del domingo</small>'+line('Voz','Ana, Marta')+line('Teclado','Luis')+line('Guitarra','Pedro')+line('Batería','José')+'</div>',1)],
+      ['Repertorio', scr('Repertorio','Domingo 8','<div class="c">'+line('Canción 1','Apertura','<span class="chip">G</span>')+line('Canción 2','','<span class="chip">D</span>')+line('Canción 3','Ministración','<span class="chip">A</span>')+line('Canción 4','Cierre','<span class="chip">E</span>')+'</div><div class="c soft"><small>Cada canción</small><span>Letra, acordes, tono y enlace para ensayar</span></div>',1)],
+      ['Chat del ministerio', scr('Chat','Ministerio de alabanza','<div class="bub">¿Ensayamos a las 4 el sábado?</div><div class="bub me">Sí, yo llevo el teclado</div><div class="bub">Perfecto, gracias Luis</div><div class="c soft" style="margin-top:auto"><span style="color:var(--muted)">Escribe un mensaje…</span></div>',1)]
+     ],
+     inc:['Cronograma de turnos por domingo','Repertorio con tonos, letras y enlaces','Chat del ministerio','Calendario que se sincroniza con el celular','Avisos de turnos al celular'],
+     no:[],
+     ej:'El líder arma el cronograma del mes. Cada músico recibe su turno en el celular y en su calendario, y el sábado todos tienen el repertorio con los tonos correctos.',
+     who:[['Líder de alabanza','Arma turnos y repertorio'],['Músicos y voces','Ven su turno, el repertorio y el chat']]},
+
+    {id:'disc',n:'Discipulado',s:'Mentores y discípulos',ic:'book',st:'prop',fase:'Opcional · se activa cuando se apruebe',
+     d:'Lo propuso Gabriela. Ya está construido dentro de Arpas, pero todavía no se usa en la iglesia. Cada mentor acompaña a sus discípulos y también tiene su propio mentor, incluido el pastor. Se puede activar cuando usted lo apruebe, sin costo adicional.',
+     sc:[
+      ['Inicio', scr('Discipulado','Hoy, 6 de noviembre','<div class="c dark"><small>Devocional de hoy</small><b>Permanecer en la vid</b><span style="opacity:.8">Juan 15:1-8</span><span class="btn" style="background:var(--gold-bright);color:#111010">Leer y responder</span></div><div class="grid2"><div class="k"><b>12</b><span>Días de racha</span></div><div class="k"><b>3</b><span>Retos activos</span></div></div><div class="c"><small>Próxima mentoría</small><b>Martes 11 · 7:00 p.m.</b><span style="color:var(--muted)">Agregada a tu calendario</span></div>',null)],
+      ['Vista del mentor', scr('Mis discípulos','5 personas','<div class="c">'+line('María López','Devocional hoy · racha 12','<span class="chip ok">Al día</span>')+line('Laura Vega','Último devocional hace 4 días','<span class="chip warn">Llamar</span>')+line('Carla Ríos','Mentoría el martes','<span class="chip">Agendada</span>')+'</div><div class="c soft"><small>Notas privadas</small><span>Solo las lee el mentor que las escribe</span></div>',null)],
+      ['Muro y preguntas', scr('Muro','Mi grupo de discipulado','<div class="c"><div class="row"><span class="av">?</span><b style="flex:1">Pregunta anónima</b><span class="chip">Pregunta</span></div><span>¿Cómo sé si estoy escuchando a Dios?</span><span style="color:var(--muted)">3 respuestas · 1 marcada como la mejor</span></div><div class="c"><div class="row"><span class="av">ML</span><b style="flex:1">María López</b></div><span>Lo que aprendí hoy en Juan 15:5</span></div>',null)]
+     ],
+     inc:['Devocional diario con respuestas y comentarios','Muro del grupo con preguntas, también anónimas','Mentorías agendadas que llegan al calendario del celular','Retos, racha y niveles de crecimiento','Biblia en 4 versiones dentro de la app','Notas privadas que solo lee el mentor'],
+     no:['No está en uso todavía: necesita su aprobación'],
+     ej:'Una mentora con 5 discípulas ve de un vistazo quién lleva días sin hacer el devocional, le escribe y agenda la próxima mentoría, que aparece sola en el calendario de las dos.',
+     who:[['Pastor','Ve el avance de todo el discipulado'],['Mentor','Ve a sus discípulos y escribe notas privadas'],['Discípulo','Hace el devocional, participa en el muro y ve sus mentorías']]}
+  ];
+
+  var ST={ok:'Ya funciona',plan:'Por construir',prop:'Construido · sin usar'};
+  var list=document.getElementById('mods');
+  list.innerHTML=F.map(function(f,i){
+    return '<details class="mod" id="m-'+f.id+'"'+(i===0?' open':'')+'><summary><span class="ic">'+ic(f.ic)+'</span><span class="tx"><b>'+f.n+'</b><small>'+f.s+'</small></span><span class="pill '+f.st+'">'+ST[f.st]+'</span><span class="chev">'+'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary>'
+      +'<div class="mbody"><div class="meta"><span class="pill '+f.st+'">'+ST[f.st]+'</span><span>'+f.fase+'</span></div><p>'+f.d+'</p>'
+      +'<div class="shots-h"><b>Pantallas</b><span class="swipe">Deslice para ver las 3</span></div>'
+      +'<div class="track" tabindex="0" aria-label="Pantallas de '+f.n+'">'+f.sc.map(function(s,j){return '<figure class="shot">'+s[1]+'<figcaption>'+(j+1)+' · '+s[0]+'</figcaption></figure>';}).join('')+'</div>'
+      +'<div class="cols"><div class="col"><h4>Qué incluye</h4><ul class="inc">'+f.inc.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'
+      +(f.no.length?'<h4>Qué no incluye</h4><ul class="no">'+f.no.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>':'')+'</div>'
+      +'<div class="col"><h4>Quién ve qué</h4><div class="roles">'+f.who.map(function(w){return '<div><b>'+w[0]+'</b><span>'+w[1]+'</span></div>';}).join('')+'</div></div>'
+      +'<div class="col"><h4>Ejemplo de uso</h4><p class="ej">'+f.ej+'</p></div></div></div></details>';
+  }).join('');
+  var all=document.getElementById('toggle-all');
+  all.addEventListener('click',function(){
+    var ds=list.querySelectorAll('details'), abrir=[].some.call(ds,function(d){return !d.open;});
+    [].forEach.call(ds,function(d){d.open=abrir;});
+    all.textContent=abrir?'Cerrar todas':'Abrir todas';
+  });
+
+  /* Costos */
+  var C=[
+    {id:'supa',n:'Base de datos en la nube (Supabase Pro)',d:'Guarda todo de forma segura, con respaldos diarios. El plan gratis se apaga si nadie entra en 7 días y es muy pequeño para 400 personas.',m:25,req:true},
+    {id:'dom',n:'Dominio de la iglesia (ya lo tiene)',d:'Se usa una dirección dentro del dominio actual, por ejemplo arpas.(dominio de la iglesia). También sirve para que los correos de la app no caigan en spam. No tiene costo adicional.',m:0,req:true},
+    {id:'mail',n:'Correo de la app (Resend, plan gratis)',d:'Para registros y cambio de contraseña. Incluye 3,000 correos al mes y 100 al día.',m:0,req:true},
+    {id:'mailpro',n:'Correo de la app, plan Pro',d:'Opcional. Solo si un día se pasan de 100 correos, por ejemplo al registrar a toda la iglesia de una vez. Incluye 50,000 al mes.',m:20,req:false},
+    {id:'res',n:'Reserva para crecimiento',d:'Opcional. Por si se usan más fotos, videos o espacio del que incluye el plan.',m:10,req:false}
+  ];
+  var on={mailpro:false,res:false};
+  var tbl=document.getElementById('costos');
+  function money(v){return '$'+(Math.round(v*100)/100).toFixed(v%1?2:0);}
+  tbl.innerHTML=C.map(function(c){
+    var price=c.m===0?'$0':(c.anual?money(c.anual)+'<small>al año</small>':money(c.m)+'<small>al mes</small>');
+    var ctl=c.req?'<span class="lock" title="Necesario">'+ic('check',18).replace('stroke-width="1.75"','stroke-width="2"')+'</span>':'<input type="checkbox" id="c-'+c.id+'" aria-describedby="d-'+c.id+'">';
+    var lab=c.req?'<div class="d"><b>'+c.n+'</b><small id="d-'+c.id+'">'+c.d+'</small></div>':'<label for="c-'+c.id+'"></label><div class="d"><b><label for="c-'+c.id+'" style="cursor:pointer">'+c.n+'</label></b><small id="d-'+c.id+'">'+c.d+'</small></div>';
+    return '<div class="li">'+ctl+(c.req?lab:lab.replace('<label for="c-'+c.id+'"></label>',''))+'<div class="p">'+price+'</div></div>';
+  }).join('');
+  function total(){
+    var m=0; C.forEach(function(c){ if(c.req||on[c.id]) m+=c.m; });
+    var mes=Math.round(m), anio=Math.round(m*12/5)*5;
+    document.getElementById('t-mes').innerHTML='$'+mes+' <small>/ mes</small>';
+    document.getElementById('t-anio').textContent='≈ $'+anio+' al año';
+    document.getElementById('f-mes').textContent='$'+mes;
+    document.getElementById('t-ask-anio').textContent='$'+anio+' al año';
+  }
+  C.forEach(function(c){ if(!c.req){ document.getElementById('c-'+c.id).addEventListener('change',function(e){on[c.id]=e.target.checked;total();}); } });
+  total();
+  /* Instalar */
+  var bi=document.getElementById('os-ios'), ba=document.getElementById('os-and');
+  function os(a){bi.setAttribute('aria-selected',!a);ba.setAttribute('aria-selected',a);document.getElementById('pasos-ios').hidden=a;document.getElementById('pasos-and').hidden=!a;}
+  bi.addEventListener('click',function(){os(false);}); ba.addEventListener('click',function(){os(true);});
+  /* Tiendas */
+  var sa=document.getElementById('st-and'), si=document.getElementById('st-ios'), sw=document.getElementById('st-waiver');
+  function tiendas(){
+    sw.disabled=!si.checked; if(!si.checked) sw.checked=false;
+    var ios=si.checked&&!sw.checked?99:0, y1=(sa.checked?25:0)+ios;
+    document.getElementById('st-1').innerHTML='$'+y1+' <small>primer año</small>';
+    document.getElementById('st-2').textContent=ios?'$'+ios+' cada año después':'$0 los años siguientes';
+  }
+  [sa,si,sw].forEach(function(x){x.addEventListener('change',tiendas);}); tiendas();
+})();
+</script>
+
+</body>
+</html>
