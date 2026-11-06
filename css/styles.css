@@ -1072,3 +1072,16 @@ body.mod-disc .m-osc { display: none !important; }
 .d-aprob { display: grid; gap: 8px; }
 .d-aprob-f { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 14px; }
 .d-aprob-f small { color: var(--texto2, inherit); opacity: .75; white-space: nowrap; }
+
+/* Novedades y guías */
+.guia { margin: 6px 0 14px; padding: 0; list-style: none; counter-reset: g; display: grid; gap: 10px; }
+.guia li { counter-increment: g; display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 10px; }
+.guia li::before { content: counter(g); grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; background: var(--acento, #8A6A1F); color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.guia b { font-size: 15px; }
+.guia span { font-size: 14px; opacity: .8; }
+.guia-n { margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+.guia-c summary { cursor: pointer; display: grid; gap: 2px; list-style: none; }
+.guia-c summary::-webkit-details-marker { display: none; }
+.guia-c summary small { opacity: .7; }
+.guia-c[open] summary { margin-bottom: 10px; }
+.nov-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 10px; background: var(--peligro); color: #fff; font-size: 12px; font-weight: 700; }

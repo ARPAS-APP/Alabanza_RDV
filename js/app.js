@@ -7,6 +7,7 @@ import {
 import { generarCifrado, renderCifrado, erroresCifrado, AYUDA_CIFRADO, leerIreal } from './cifrado.js';
 import { crearReproductor, desbloquearAudio } from './audio-ref.js';
 import { crearDiscipulado } from './discipulado.js';
+import { NOVEDADES } from './novedades.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -199,6 +200,46 @@ function abrirModal(titulo, html, { visor = false } = {}) {
 }
 function cerrarModal() { if (dlg.open) dlg.close(); }
 
+// ---------- Novedades (guía de cada función nueva; la lista está en novedades.js) ----------
+const NOV_KEY = 'arpas.novedades';
+const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem(NOV_KEY) || '[]')); } catch { return new Set(); } };
+const novMarcar = ids => { try { const v = novVistas(); ids.forEach(i => v.add(i)); localStorage.setItem(NOV_KEY, JSON.stringify([...v])); } catch { /* sin almacenamiento */ } };
+function novedadesMias() {
+  return NOVEDADES.filter(n => {
+    if (n.modulo === 'discipulado' && !discRol()) return false;
+    if (n.modulo === 'alabanza' && !tieneAlabanza()) return false;
+    return !n.para || n.para.includes(discRol()) || (n.para.includes('admin') && esAdmin());
+  });
+}
+const htmlGuia = n => `<p class="ayuda" style="margin-top:0">${esc(n.resumen)}</p>
+  <ol class="guia">${n.pasos.map(p => `<li><b>${esc(p.t)}</b><span>${esc(p.d)}</span></li>`).join('')}</ol>`;
+function mostrarNovedades() {
+  if (dlg.open || st.perfil?.estado !== 'aprobado') return;
+  const desde = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+  const vistas = novVistas();
+  const lista = novedadesMias().filter(n => !vistas.has(n.id) && n.fecha >= desde);
+  if (lista.length) guiaNovedades(lista, 0);
+}
+function guiaNovedades(lista, i) {
+  const n = lista[i], ult = i === lista.length - 1;
+  const body = abrirModal(`✨ ${n.titulo}`, `${lista.length > 1 ? `<p class="guia-n">Novedad ${i + 1} de ${lista.length}</p>` : ''}${htmlGuia(n)}
+    <div class="fila">${n.ir ? `<button type="button" class="btn" id="nIr">${esc(n.irTxt || 'Ir ahora')}</button>` : ''}<button type="button" class="btn prim" id="nOk">${ult ? 'Entendido' : 'Siguiente'}</button></div>`);
+  novMarcar([n.id]);
+  $('#nOk', body).onclick = () => (ult ? cerrarModal() : guiaNovedades(lista, i + 1));
+  const ir = $('#nIr', body);
+  if (ir) ir.onclick = () => { novMarcar(lista.map(x => x.id)); cerrarModal(); location.hash = n.ir; };
+}
+function vistaNovedades() {
+  const lista = novedadesMias();
+  const fecha = f => new Date(f + 'T12:00:00').toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' });
+  app.innerHTML = encabezado('Novedades y guías', { atras: '#/perfil' }) + `
+    <p class="ayuda" style="margin-top:0">Lo nuevo de la app y cómo usarlo. Toca cada una para ver los pasos.</p>
+    ${lista.length ? lista.map((n, i) => `<details class="card guia-c" ${i === 0 ? 'open' : ''}>
+      <summary><b>${esc(n.titulo)}</b><small>${esc(fecha(n.fecha))}${n.modulo !== 'todos' ? ' · ' + (n.modulo === 'discipulado' ? 'Discipulado' : 'Alabanza') : ''}</small></summary>
+      ${htmlGuia(n)}${n.ir ? `<a class="btn sm" href="${esc(n.ir)}">${esc(n.irTxt || 'Ir ahora')}</a>` : ''}</details>`).join('') : '<p class="ayuda">Todavía no hay novedades.</p>'}`;
+  novMarcar(lista.map(n => n.id));
+}
+
 async function ocupado(btn, fn) {
   const txt = btn?.textContent;
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
@@ -269,6 +310,7 @@ async function arrancar(session) {
   const inicio = discRol() && (!tieneAlabanza() || ajustes.modulo === 'discipulado') ? '#/d/inicio' : '#/muro';
   if (!location.hash || location.hash === '#' || location.hash === '#/' || /^#\/registro/.test(location.hash)) location.replace(inicio);
   else rutear();
+  setTimeout(mostrarNovedades, 1200);
 }
 
 /** Accesos por módulo. Si aún no se ejecutó 015_modulos_discipulado.sql, todo sigue como antes (solo Alabanza). */
@@ -407,9 +449,10 @@ const RUTAS = {
   plan: vistaPlan,
   equipo: vistaEquipo,
   perfil: vistaPerfil,
+  novedades: vistaNovedades,
   d: ctx => disc.vista(ctx),
 };
-const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', perfil: 'equipo' };
+const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', perfil: 'equipo', novedades: 'equipo' };
 
 window.addEventListener('hashchange', () => st.perfil?.estado === 'aprobado' && rutear());
 
@@ -417,12 +460,13 @@ function rutear() {
   const [ruta, qs = ''] = location.hash.replace(/^#\/?/, '').split('?');
   const [nombre, id] = ruta.split('/');
   // Cada ruta pertenece a un módulo; "perfil" se queda en el módulo actual
-  const modulo = nombre === 'perfil' ? (st.modulo === 'discipulado' && discRol() ? 'discipulado' : (tieneAlabanza() ? 'alabanza' : 'discipulado'))
+  const propio = nombre === 'perfil' || nombre === 'novedades';
+  const modulo = propio ? (st.modulo === 'discipulado' && discRol() ? 'discipulado' : (tieneAlabanza() ? 'alabanza' : 'discipulado'))
     : nombre === 'd' ? 'discipulado' : 'alabanza';
   if (modulo === 'discipulado' && !discRol()) { location.replace('#/muro'); return; }
   if (modulo === 'alabanza' && !tieneAlabanza()) { location.replace('#/d/inicio'); return; }
   if (st.modulo !== modulo || !st.marcaLista) { st.modulo = modulo; st.marcaLista = true; aplicarTema(); aplicarMarca(modulo === 'discipulado'); }
-  if (ajustes.modulo !== modulo && nombre !== 'perfil') { ajustes.modulo = modulo; guardarAjustes(); }
+  if (ajustes.modulo !== modulo && !propio) { ajustes.modulo = modulo; guardarAjustes(); }
   document.body.classList.toggle('mod-disc', modulo === 'discipulado');
   $('#nav').hidden = modulo !== 'alabanza';
   $('#navD').hidden = modulo !== 'discipulado';
@@ -431,7 +475,7 @@ function rutear() {
   const token = ++st.vista;
   const partes = ruta.split('/').slice(1);
   const tab = nombre === 'd' ? disc.tabDe(partes[0]) : TAB_DE[nombre] || (RUTAS[nombre] ? nombre : 'muro');
-  document.querySelectorAll(modulo === 'alabanza' ? '#nav a' : '#navD a').forEach(a => a.classList.toggle('activo', nombre !== 'perfil' && a.dataset.tab === tab));
+  document.querySelectorAll(modulo === 'alabanza' ? '#nav a' : '#navD a').forEach(a => a.classList.toggle('activo', !propio && a.dataset.tab === tab));
   app.onclick = null; app.oninput = null; app.onchange = null; app.onsubmit = null;
   window.scrollTo(0, 0);
   fn({ id, partes, q: new URLSearchParams(qs), vigente: () => token === st.vista });
@@ -3706,6 +3750,7 @@ function vistaPerfil() {
         `<button type="button" data-tema="${k}" class="${(ajustes.tema || 'auto') === k ? 'activo' : ''}">${v}</button>`).join('')}</div>
       ${ala ? `<label class="check"><input type="checkbox" id="chkLatino" ${ajustes.latino ? 'checked' : ''}> Mostrar acordes en cifrado latino (Do, Re, Mi…)</label>` : ''}
     </div>
+    <a class="btn blk" href="#/novedades" style="margin-top:0;margin-bottom:12px">✨ Novedades y guías${(() => { const v = novVistas(); const n = novedadesMias().filter(x => !v.has(x.id)).length; return n ? ` <span class="nov-badge">${n}</span>` : ''; })()}</a>
     ${ala ? `<div class="card" id="cardTonos"></div>
     <div id="cardNotif"></div>
     <div id="cardIndisp"></div>` : `<div id="cardNotif"></div><button class="btn blk" id="bCal" style="margin-top:0;margin-bottom:12px">📅 Mis mentorías en el calendario del celular</button>`}
