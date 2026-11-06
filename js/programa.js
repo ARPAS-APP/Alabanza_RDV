@@ -14,6 +14,7 @@ const ORDEN = { rapida: 0, lenta: 1, '': 2 };
 const pad = n => String(n).padStart(2, '0');
 const claveMes = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 let mes = new URLSearchParams(location.search).get('mes') || claveMes(new Date());
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 let bloquesDe = new Map();   // setlist_id -> [{ titulo, bloques: [{ titulo, hora, descripcion }] }]
 const letras = new Map();
 
@@ -74,8 +75,20 @@ function htmlDia(d, ahora, proximoId) {
     <h2>${esc(t.emoji || '📅')} ${esc(d.titulo || t.nombre)} ${d.id === proximoId ? '<span class="tag ok">Próximo</span>' : ''}</h2>
     <div class="cuando">${esc(fmtCuando(d.fecha))} · ${esc(fmtHora(d.fecha))}${d.lugar ? ' · 📍 ' + esc(d.lugar) : ''}</div>
     ${dir.length || voz.length ? `<div class="pg-voces">🎤 ${dir.length ? `<b>👑 Dirige:</b> ${dir.join(', ')}` : ''}${dir.length && voz.length ? ' · ' : ''}${voz.length ? `<b>Voces:</b> ${voz.join(', ')}` : ''}</div>` : ''}
-    ${(bloquesDe.get(d.id) || []).map(a => `<div class="pg-blq"><div class="pg-sub">📋 ${esc(a.titulo)}</div>${(a.bloques || []).map(b =>
-      `<div class="pg-blq-i">${b.hora ? `<b>${esc(b.hora)}</b> · ` : ''}${esc(b.titulo)}${b.descripcion ? `<small>${esc(b.descripcion)}</small>` : ''}</div>`).join('')}</div>`).join('')}
+    ${(bloquesDe.get(d.id) || []).map(a => {
+      const horas = [a.hora_inicio && 'Inicio ' + a.hora_inicio, a.hora_cierre && 'Cierre ' + a.hora_cierre, a.hora_limite && 'A más tardar ' + a.hora_limite].filter(Boolean);
+      return `<div class="pg-blq">
+        <div class="pg-sub">📋 ${esc(a.titulo)}</div>
+        ${a.lema ? `<small class="pg-lema">“${esc(a.lema)}”</small>` : ''}${horas.length ? `<small class="pg-lema">${esc(horas.join(' · '))}</small>` : ''}
+        ${(a.bloques || []).map((b, i) => `<div class="pg-blq-i">
+          <b>${ROMANOS[i] || i + 1}. ${esc(b.titulo)}</b>${b.etiqueta ? ` · ${esc(b.etiqueta)}` : ''}${b.hora ? ` <span class="pg-rango">${esc(b.hora)}${b.hora_fin ? ' – ' + esc(b.hora_fin) : ''}</span>` : ''}
+          ${b.citas ? `<small>📖 ${esc(b.citas)}</small>` : ''}
+          ${(b.momentos || []).map(m => `<div class="pg-mom${m.destacado ? ' dest' : ''}"><span>${esc(m.hora || '')}</span><div>${esc(m.titulo)}${m.detalle ? `<small>${esc(m.detalle)}</small>` : ''}</div>${m.minutos != null ? `<em>${m.minutos} min</em>` : ''}</div>`).join('')}
+          ${b.canciones?.length ? `<small>🎵 ${b.canciones.map(esc).join(' · ')}</small>` : ''}
+          ${b.descripcion ? `<small>${esc(b.descripcion)}</small>` : ''}
+        </div>`).join('')}
+      </div>`;
+    }).join('')}
     ${cans.length ? cans.map((c, k) => `${conRitmo && (k === 0 || cans[k - 1].ritmo !== c.ritmo) ? `<div class="pg-sub">${RITMOS[c.ritmo]}</div>` : ''}
       <div class="pg-can">
         <div class="pg-can-top">

@@ -14,6 +14,25 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-06-actividades-programa',
+    fecha: '2026-11-06',
+    modulo: 'alabanza',
+    titulo: 'Actividades como programa',
+    resumen: 'Cada actividad se ve ahora como un programa: lema, horarios, una barra de tiempo y bloques con sus momentos, citas y canciones del día.',
+    pasos: [
+      { t: 'Lee el programa', d: 'Arriba ves la fecha, el lema y los horarios. La barra muestra cuánto dura cada bloque.' },
+      { t: 'Recorre los bloques', d: 'Cada bloque trae sus citas bíblicas, sus momentos con hora y minutos, y sus canciones. Lo destacado aparece en dorado.' },
+      { t: 'Abre tus canciones', d: 'Toca una canción del bloque para verla en el tono del día.', para: ['miembro'] },
+      { t: 'En el día también', d: 'En el repertorio del día, cada canción dice en qué bloque va (📋).', para: ['miembro'] },
+      { t: 'Completa la actividad', d: 'Con ✏️ arriba agrega el lema y las horas de inicio, cierre y a más tardar.', para: ['admin'] },
+      { t: 'Arma cada bloque', d: 'En ✏️ del bloque pon etiqueta, desde y hasta (así aparece en la barra) y las citas bíblicas.', para: ['admin'] },
+      { t: 'Agrega momentos', d: 'Toca "＋ Momento": hora, qué pasa, detalle, minutos y ⭐ para destacar. Ordénalos con ↑ ↓.', para: ['admin'] },
+      { t: 'Pon las canciones del día', d: 'Toca "🎵 Canciones del día" en el bloque, o elige el bloque al agregar una canción en el día. La actividad debe estar ligada a ese día.', para: ['admin'] },
+    ],
+    ir: '#/actividades',
+    irTxt: 'Ver actividades',
+  },
+  {
     id: '2026-11-06-actividades',
     fecha: '2026-11-06',
     modulo: 'alabanza',

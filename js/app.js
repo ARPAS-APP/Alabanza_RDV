@@ -2898,10 +2898,16 @@ async function vistaDia(ctx) {
     ${htmlChat()}
     ${esAdmin() ? `<button class="btn peligro blk" data-acc="borrar" style="margin-top:28px">Eliminar día</button>` : ''}`;
   // Actividades ligadas a este día (bloques del programa)
-  sb.from('actividades').select('id, titulo, bloques:actividad_bloques(id)').eq('setlist_id', s.id).then(({ data }) => {
+  sb.from('actividades').select('id, titulo, bloques:actividad_bloques(id, titulo)').eq('setlist_id', s.id).then(({ data }) => {
     if (!ctx.vigente() || !data?.length) return;
     app.querySelector('header.top')?.insertAdjacentHTML('afterend', data.map(a =>
       `<a class="card item act-link" href="#/actividad/${a.id}"><div class="info"><b>📋 ${esc(a.titulo)}</b><small>${a.bloques.length} ${a.bloques.length === 1 ? 'bloque' : 'bloques'} · toca para ver y comentar</small></div><span aria-hidden="true">›</span></a>`).join(''));
+    // En qué bloque va cada canción
+    const nombreBloque = new Map(data.flatMap(a => a.bloques.map(b => [b.id, b.titulo])));
+    items.forEach(it => {
+      if (!it.bloque_id || !nombreBloque.has(it.bloque_id)) return;
+      app.querySelector(`.set-item[data-id="${it.id}"] .info small`)?.insertAdjacentHTML('beforeend', ` · <span class="tag-bloque">📋 ${esc(nombreBloque.get(it.bloque_id))}</span>`);
+    });
   });
 
   // Si alguien inicia/termina el en vivo, refrescar
@@ -3557,6 +3563,9 @@ async function modalItem(s, items, it) {
   if (rc.error || rt.error) return fallo(rc.error || rt.error, 'Canciones');
   const canciones = rc.data;
   if (!canciones.length) return toast('Primero crea canciones en la pestaña Canciones', true);
+  // Bloques de las actividades de este día (si las hay)
+  const { data: acts } = await sb.from('actividades').select('titulo, bloques:actividad_bloques(id, titulo, hora, orden)').eq('setlist_id', s.id);
+  const bloquesDia = (acts || []).flatMap(a => [...a.bloques].sort((x, y) => x.orden - y.orden).map(b => ({ ...b, act: a.titulo })));
   const tonoGuardado = (cid, pid) => rt.data.find(t => t.cancion_id === cid && t.cantante_id === pid)?.tono;
   // Cantantes del día primero
   const delDia = new Set((s.asignaciones || []).filter(a => ROLES_CANTO.includes(a.rol)).map(a => a.perfil_id));
@@ -3575,6 +3584,8 @@ async function modalItem(s, items, it) {
       ${st.faltaV6 ? '' : `<label>Ritmo en este día</label><select name="ritmo"><option value="">Según la canción</option>${Object.entries(RITMOS).map(([k, v]) =>
         `<option value="${k}" ${it?.ritmo === k ? 'selected' : ''}>${v}</option>`).join('')}</select>`}
       <label>Nota (opcional)</label><input name="notas" maxlength="200" value="${esc(it?.notas)}" placeholder="Ej: solo coro, versión corta">
+      ${bloquesDia.length ? `<label>Bloque de la actividad</label><select name="bloque_id"><option value="">Sin bloque</option>${bloquesDia.map(b =>
+        `<option value="${b.id}" ${b.id === it?.bloque_id ? 'selected' : ''}>${b.hora ? esc(b.hora) + ' · ' : ''}${esc(b.titulo)}${acts.length > 1 ? ` (${esc(b.act)})` : ''}</option>`).join('')}</select>` : ''}
       <label class="check"><input type="checkbox" name="recordar" checked> Guardar este tono para el cantante</label>
       <button class="btn prim blk" type="submit">${it ? 'Guardar' : 'Agregar'}</button>
       ${it ? `<button class="btn peligro blk" type="button" id="bQuitar">Quitar del repertorio</button>` : ''}
@@ -3620,10 +3631,12 @@ async function modalItem(s, items, it) {
       if (!f.cancion_id) return toast('Busca y elige una canción', true);
       const can = canciones.find(x => x.id === f.cancion_id);
       const datos = { cancion_id: f.cancion_id, cantante_id: f.cantante_id || null, tono: f.tono || null, notas: f.notas.trim() || null,
-        ...(st.faltaV6 ? {} : { ritmo: f.ritmo && f.ritmo !== can?.ritmo ? f.ritmo : null }) };
+        ...(st.faltaV6 ? {} : { ritmo: f.ritmo && f.ritmo !== can?.ritmo ? f.ritmo : null }),
+        ...(bloquesDia.length ? { bloque_id: f.bloque_id || null } : {}) };
       const { error } = it
         ? await sb.from('setlist_items').update(datos).eq('id', it.id)
         : await sb.from('setlist_items').insert({ ...datos, setlist_id: s.id, orden: items.length ? Math.max(...items.map(x => x.orden)) + 1 : 0 });
+      if (error && /bloque_id/.test(error.message || '')) return toast('Falta activar las canciones en bloques: ejecuta supabase/021_programa_actividades.sql en Supabase', true);
       if (error) return fallo(error, 'Repertorio');
       if (f.recordar && datos.cantante_id && datos.tono) {
         const { error: e2 } = await sb.from('tonos_cantante')
@@ -3703,19 +3716,82 @@ async function vistaActividades(ctx) {
   app.onclick = e => { if (e.target.closest('[data-acc=nueva]')) modalActividad(null); };
 }
 
+// ---------- programa de una actividad ----------
+const COLORES_BLOQUE = ['#5B8DEF', '#9B7BEA', '#3BB58A', '#E0B458', '#E56B6B', '#4FB6D8'];
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+/** "7:00 p. m." · "19:30" · "8:12" → minutos desde las 0:00 (sin a. m./p. m. se toma tal cual). */
+function minutosDe(txt) {
+  const m = /(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?/i.exec(String(txt || ''));
+  if (!m) return null;
+  let h = +m[1];
+  const mi = +(m[2] || 0);
+  if (h > 23 || mi > 59) return null;
+  const ap = (m[3] || '').toLowerCase();
+  if (ap.startsWith('p') && h < 12) h += 12;
+  if (ap.startsWith('a') && h === 12) h = 0;
+  return h * 60 + mi;
+}
+const hhmm = min => `${((Math.floor(min / 60) % 24 + 11) % 12) + 1}:${String(min % 60).padStart(2, '0')}`;
+/** Barra de tiempo a escala con los bloques que tienen hora de inicio y de fin. */
+function htmlLineaTiempo(bloques) {
+  const tramos = [];
+  let prev = null;
+  bloques.forEach((b, i) => {
+    let ini = minutosDe(b.hora), fin = minutosDe(b.hora_fin);
+    if (ini == null || fin == null) return;
+    while (prev != null && ini < prev - 30) ini += 720;   // "8:12" después de "7:00 p. m."
+    while (fin <= ini) fin += 720;
+    tramos.push({ b, i, ini, fin });
+    prev = fin;
+  });
+  if (!tramos.length) return '';
+  const t0 = tramos[0].ini, t1 = Math.max(...tramos.map(t => t.fin)), tot = t1 - t0;
+  if (tot <= 0 || tot > 24 * 60) return '';
+  const pos = v => (100 * (v - t0) / tot).toFixed(2), ancho = t => (100 * (t.fin - t.ini) / tot).toFixed(2);
+  const horas = [];
+  for (let h = Math.ceil(t0 / 60) * 60; h < t1; h += 60) if (h - t0 > 25 && t1 - h > 25) horas.push(h);
+  return `<div class="linea-t" aria-hidden="true">
+    <div class="lt-nombres">${tramos.map(t => `<span style="left:${pos(t.ini)}%;width:${ancho(t)}%">${esc(t.b.etiqueta || t.b.titulo)}</span>`).join('')}</div>
+    <div class="lt-barra">${tramos.map(t => `<i style="left:${pos(t.ini)}%;width:${ancho(t)}%;background:${COLORES_BLOQUE[t.i % COLORES_BLOQUE.length]}"></i>`).join('')}</div>
+    <div class="lt-horas">${[t0, ...horas, t1].map((h, k, arr) => `<span class="${k === 0 ? 'ini' : k === arr.length - 1 ? 'fin' : ''}" style="left:${pos(h)}%">${hhmm(h)}</span>`).join('')}</div>
+  </div>`;
+}
+const fmtFechaActLarga = k => new Date(k + 'T12:00').toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long' });
+const faltaPrograma = error => error && /bloque_momentos|lema|hora_inicio|hora_cierre|hora_limite|etiqueta|hora_fin|citas|bloque_id/.test(error.message || '');
+const avisoPrograma = 'Falta activar el programa por bloques: ejecuta supabase/021_programa_actividades.sql en Supabase';
+
 async function vistaActividad(ctx) {
-  cargando('Actividad', { atras: '#/actividades' });
+  cargando('Programa', { atras: '#/actividades' });
   const id = ctx.id;
-  let a, bloques, puede;
+  let a, bloques, puede, itemsDia = null, falta021 = false;
   const cargar = async () => {
-    const [ra, rb] = await Promise.all([
+    const selBloques = m => `*, comentarios:bloque_comentarios(id, autor_id, texto, created_at)${m ? ', momentos:bloque_momentos(*)' : ''}`;
+    const [ra, rb0] = await Promise.all([
       sb.from('actividades').select('*, setlist:setlists(id, titulo, fecha)').eq('id', id).maybeSingle(),
-      sb.from('actividad_bloques').select('*, comentarios:bloque_comentarios(id, autor_id, texto, created_at)').eq('actividad_id', id).order('orden').order('created_at'),
+      sb.from('actividad_bloques').select(selBloques(true)).eq('actividad_id', id).order('orden').order('created_at'),
     ]);
+    let rb = rb0;
+    falta021 = false;
+    if (rb.error && /bloque_momentos/.test(rb.error.message || '')) {   // falta el script 021: seguir sin momentos
+      falta021 = true;
+      rb = await sb.from('actividad_bloques').select(selBloques(false)).eq('actividad_id', id).order('orden').order('created_at');
+    }
     if (faltaActividades(ra.error) || faltaActividades(rb.error)) return 'falta';
     if (ra.error || rb.error) throw ra.error || rb.error;
     a = ra.data; bloques = rb.data || [];
-    bloques.forEach(b => b.comentarios.sort((x, y) => x.created_at.localeCompare(y.created_at)));
+    bloques.forEach(b => {
+      b.comentarios.sort((x, y) => x.created_at.localeCompare(y.created_at));
+      b.momentos = (b.momentos || []).sort((x, y) => x.orden - y.orden || x.created_at.localeCompare(y.created_at));
+    });
+    // Canciones del día ligado (van dentro de su bloque)
+    itemsDia = null;
+    if (a?.setlist_id) {
+      const ri = await sb.from('setlist_items').select('id, cancion_id, tono, cantante_id, orden, bloque_id, cancion:canciones(id, titulo, artista, tono_original)')
+        .eq('setlist_id', a.setlist_id).order('orden');
+      if (ri.error && /bloque_id/.test(ri.error.message || '')) falta021 = true;
+      else if (ri.error) throw ri.error;
+      else itemsDia = (ri.data || []).filter(i => i.cancion);
+    }
     puede = esAdmin() || !a?.setlist_id;
     if (a?.setlist_id && !puede) {
       const { count } = await sb.from('asignaciones').select('id', { count: 'exact', head: true }).eq('setlist_id', a.setlist_id).eq('perfil_id', st.uid);
@@ -3723,69 +3799,119 @@ async function vistaActividad(ctx) {
     }
     return 'ok';
   };
+  const htmlCanciones = b => {
+    if (!a.setlist_id || !itemsDia) return '';
+    const mias = itemsDia.map((it, i) => ({ it, i })).filter(({ it }) => it.bloque_id === b.id);
+    if (!mias.length && !esAdmin()) return '';
+    return `<div class="bloque-cans">
+      ${mias.map(({ it, i }) => `<a class="bloque-can" href="#/cancion/${it.cancion_id}?set=${a.setlist_id}&i=${i}${it.tono ? '&tono=' + encodeURIComponent(it.tono) : ''}">
+        <span class="bc-t">🎵 ${it.cancion.artista === 'Medley' ? '🔗 ' : ''}${esc(it.cancion.titulo)}${it.cantante_id ? `<small>🎤 ${esc(nombreCorto(it.cantante_id))}</small>` : ''}</span>
+        <span class="tono-pill">${esc(tonoTxt(it.tono || it.cancion.tono_original))}</span></a>`).join('')}
+    </div>`;
+  };
+  const htmlMomento = (m, k, lista) => `<div class="mom${m.destacado ? ' dest' : ''}" data-m="${m.id}">
+      <span class="mom-h">${esc(m.hora || '')}</span>
+      <div class="mom-c"><b>${esc(m.titulo)}</b>${m.detalle ? `<small>${esc(m.detalle)}</small>` : ''}</div>
+      ${m.minutos != null ? `<span class="mom-min">${m.minutos} min</span>` : ''}
+      ${esAdmin() ? `<span class="mom-acc">
+        <button class="btn-ico" data-acc="subir-mom" ${k === 0 ? 'disabled' : ''} aria-label="Subir momento">↑</button>
+        <button class="btn-ico" data-acc="bajar-mom" ${k === lista.length - 1 ? 'disabled' : ''} aria-label="Bajar momento">↓</button>
+        <button class="btn-ico" data-acc="editar-mom" aria-label="Editar momento">✏️</button></span>` : ''}
+    </div>`;
+  const htmlBloque = (b, i) => {
+    const rango = b.hora && b.hora_fin ? `${b.hora} – ${b.hora_fin}` : (b.hora || '');
+    return `<section class="card bloque" data-b="${b.id}" style="--c:${COLORES_BLOQUE[i % COLORES_BLOQUE.length]}">
+      <div class="bloque-top">
+        <span class="bloque-num" aria-hidden="true">${ROMANOS[i] || i + 1}</span>
+        <div class="bloque-tt"><small>Bloque ${i + 1}${b.etiqueta ? ' · ' + esc(b.etiqueta) : ''}</small><h3>${esc(b.titulo)}</h3></div>
+        ${rango ? `<span class="bloque-rango">${esc(rango)}</span>` : ''}
+      </div>
+      ${esAdmin() ? `<div class="bloque-acc">
+        <button class="btn-ico" data-acc="subir" ${i === 0 ? 'disabled' : ''} aria-label="Subir bloque">↑</button>
+        <button class="btn-ico" data-acc="bajar" ${i === bloques.length - 1 ? 'disabled' : ''} aria-label="Bajar bloque">↓</button>
+        <button class="btn-ico" data-acc="editar-bloque" aria-label="Editar bloque">✏️</button></div>` : ''}
+      ${b.citas ? `<div class="bloque-citas">📖 ${esc(b.citas)}</div>` : ''}
+      ${b.responsable_id ? `<p class="bloque-resp">👤 ${esc(nombreDe(b.responsable_id))}</p>` : ''}
+      ${b.descripcion ? `<p class="bloque-desc">${esc(b.descripcion)}</p>` : ''}
+      ${b.momentos.length ? `<div class="moms">${b.momentos.map(htmlMomento).join('')}</div>` : ''}
+      ${htmlCanciones(b)}
+      ${esAdmin() && !falta021 ? `<div class="fila bloque-add">
+        <button class="btn sm" data-acc="nuevo-mom">＋ Momento</button>
+        ${a.setlist_id && itemsDia ? `<button class="btn sm" data-acc="canciones-bloque">🎵 Canciones del día</button>` : ''}</div>` : ''}
+      <details class="bloque-coms"${b.comentarios.length ? ' open' : ''}>
+        <summary>💬 Comentarios${b.comentarios.length ? ` (${b.comentarios.length})` : ''}</summary>
+        ${b.comentarios.map(cm => `<div class="bcom">
+          <span class="avatar sm">${esc(iniciales(nombreDe(cm.autor_id)))}</span>
+          <div class="bcom-c"><b>${esc(nombreCorto(cm.autor_id))}</b> <small>${esc(haceCuanto(cm.created_at))}</small><p>${esc(cm.texto)}</p></div>
+          ${cm.autor_id === st.uid || esAdmin() ? `<button class="btn-ico" data-acc="borrar-com" data-id="${cm.id}" aria-label="Borrar comentario">🗑️</button>` : ''}
+        </div>`).join('')}
+        ${puede ? `<form class="bcom-form" data-b="${b.id}"><input name="t" maxlength="2000" autocomplete="off" placeholder="${b.comentarios.length ? 'Responder…' : 'Escribe un comentario…'}" aria-label="Comentario en ${esc(b.titulo)}"><button class="btn sm prim">Enviar</button></form>`
+          : (b.comentarios.length ? '' : '<p class="ayuda" style="margin:0">Sin comentarios.</p>')}
+      </details>
+    </section>`;
+  };
   const pintar = () => {
     const f = fechaAct(a);
     const derecha = esAdmin() ? '<button class="btn-ico" data-acc="editar" aria-label="Editar actividad">✏️</button>' : '';
-    const htmlBloque = (b, i) => `<section class="card bloque" data-b="${b.id}">
-        <div class="bloque-top">
-          ${b.hora ? `<span class="tono-pill">${esc(b.hora)}</span>` : ''}
-          <h3>${esc(b.titulo)}</h3>
-          ${esAdmin() ? `<span class="bloque-acc">
-            <button class="btn-ico" data-acc="subir" ${i === 0 ? 'disabled' : ''} aria-label="Subir bloque">↑</button>
-            <button class="btn-ico" data-acc="bajar" ${i === bloques.length - 1 ? 'disabled' : ''} aria-label="Bajar bloque">↓</button>
-            <button class="btn-ico" data-acc="editar-bloque" aria-label="Editar bloque">✏️</button></span>` : ''}
-        </div>
-        ${b.responsable_id ? `<p class="bloque-resp">👤 ${esc(nombreDe(b.responsable_id))}</p>` : ''}
-        ${b.descripcion ? `<p class="bloque-desc">${esc(b.descripcion)}</p>` : ''}
-        <div class="bloque-coms">
-          ${b.comentarios.map(cm => `<div class="bcom">
-            <span class="avatar sm">${esc(iniciales(nombreDe(cm.autor_id)))}</span>
-            <div class="bcom-c"><b>${esc(nombreCorto(cm.autor_id))}</b> <small>${esc(haceCuanto(cm.created_at))}</small><p>${esc(cm.texto)}</p></div>
-            ${cm.autor_id === st.uid || esAdmin() ? `<button class="btn-ico" data-acc="borrar-com" data-id="${cm.id}" aria-label="Borrar comentario">🗑️</button>` : ''}
-          </div>`).join('')}
-          ${puede ? `<form class="bcom-form" data-b="${b.id}"><input name="t" maxlength="2000" autocomplete="off" placeholder="${b.comentarios.length ? 'Responder…' : 'Escribe un comentario…'}" aria-label="Comentario en ${esc(b.titulo)}"><button class="btn sm prim">Enviar</button></form>`
-            : (b.comentarios.length ? '' : '<p class="ayuda" style="margin:0">Sin comentarios.</p>')}
-        </div>
-      </section>`;
-    app.innerHTML = encabezado(a.titulo, { atras: '#/actividades', sub: f ? fmtFechaAct(f) : 'Sin fecha', derecha }) + `
+    const horas = [[a.hora_inicio, 'Inicio'], [a.hora_cierre, 'Cierre'], [a.hora_limite, 'A más tardar']].filter(x => x[0]);
+    app.innerHTML = encabezado('Programa', { atras: '#/actividades', derecha }) + `
+      <div class="act-hero">
+        ${f ? `<p class="act-eyebrow">${esc(fmtFechaActLarga(f))}</p>` : ''}
+        <h2 class="act-tit">${esc(a.titulo)}</h2>
+        ${a.lema ? `<p class="act-lema">“${esc(a.lema)}”</p>` : ''}
+        ${horas.length ? `<div class="act-horas">${horas.map(([t, l]) => `<div><b>${esc(t)}</b><small>${l}</small></div>`).join('')}</div>` : ''}
+      </div>
+      ${htmlLineaTiempo(bloques)}
       ${a.setlist ? `<a class="card item act-link" href="#/dia/${a.setlist.id}"><div class="info"><b>📅 ${esc(a.setlist.titulo)}</b><small>${esc(fmtFechaLarga(a.setlist.fecha))} · ${esc(fmtHora(a.setlist.fecha))}</small></div><span aria-hidden="true">›</span></a>` : ''}
       ${a.descripcion ? `<div class="card bloque-desc">${esc(a.descripcion)}</div>` : ''}
+      ${esAdmin() && falta021 ? `<div class="card"><p class="ayuda" style="margin:0">⚠️ ${avisoPrograma} para agregar momentos, lema, horarios, citas y canciones en los bloques.</p></div>` : ''}
       ${!puede && a.setlist ? '<p class="ayuda">Puedes leer todo. Comentan quienes sirven ese día.</p>' : ''}
-      ${bloques.length ? bloques.map(htmlBloque).join('') : `<div class="vacio"><span class="grande">🧩</span>Esta actividad aún no tiene bloques.${esAdmin() ? '<br>Agrega el primero: por ejemplo "Bienvenida", "Alabanza", "Ofrenda" o "Predicación".' : ''}</div>`}
-      ${esAdmin() ? '<button class="btn prim blk" data-acc="nuevo-bloque" style="margin-top:6px">＋ Agregar bloque</button>' : ''}`;
+      <div class="bloques">${bloques.length ? bloques.map(htmlBloque).join('') : `<div class="vacio"><span class="grande">🧩</span>Esta actividad aún no tiene bloques.${esAdmin() ? '<br>Agrega el primero: por ejemplo "Alabanza y adoración", "Redención" o "Ministración".' : ''}</div>`}</div>
+      ${esAdmin() ? '<button class="btn prim blk" data-acc="nuevo-bloque" style="margin-top:6px">＋ Agregar bloque</button>' : ''}
+      ${bloques.length ? '<p class="ayuda act-pie">Horario aproximado.</p>' : ''}`;
   };
   const recargar = async () => {
     const y = window.scrollY;
     if (await cargar() !== 'ok' || !ctx.vigente()) return;
-    if (!a) { app.innerHTML = encabezado('Actividad', { atras: '#/actividades' }) + '<div class="vacio">Esta actividad ya no existe.</div>'; return; }
+    if (!a) { app.innerHTML = encabezado('Programa', { atras: '#/actividades' }) + '<div class="vacio">Esta actividad ya no existe.</div>'; return; }
     pintar(); window.scrollTo(0, y);
   };
   try {
     const r = await cargar();
     if (!ctx.vigente()) return;
-    if (r === 'falta') { app.innerHTML = encabezado('Actividad', { atras: '#/actividades' }) + avisoActividades(); return; }
+    if (r === 'falta') { app.innerHTML = encabezado('Programa', { atras: '#/actividades' }) + avisoActividades(); return; }
   } catch (e) { return fallo(e, 'Actividad'); }
-  if (!a) { app.innerHTML = encabezado('Actividad', { atras: '#/actividades' }) + '<div class="vacio">Esta actividad ya no existe.</div>'; return; }
+  if (!a) { app.innerHTML = encabezado('Programa', { atras: '#/actividades' }) + '<div class="vacio">Esta actividad ya no existe.</div>'; return; }
   pintar();
 
+  const reordenar = async (tabla, lista, i, j) => {
+    if (j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    const cambios = lista.map((x, k) => ({ x, k })).filter(({ x, k }) => x.orden !== k);
+    const res = await Promise.all(cambios.map(({ x, k }) => sb.from(tabla).update({ orden: k }).eq('id', x.id)));
+    const err = res.find(r => r.error)?.error;
+    if (err) throw err;
+    await recargar();
+  };
   app.onclick = async e => {
     const b = e.target.closest('[data-acc]');
     if (!b) return;
     const acc = b.dataset.acc;
     const bloque = bloques.find(x => x.id === b.closest('[data-b]')?.dataset.b);
+    const mom = bloque?.momentos.find(x => x.id === b.closest('[data-m]')?.dataset.m);
     try {
       if (acc === 'editar') modalActividad(a);
       else if (acc === 'nuevo-bloque') modalBloque(a, null, (bloques.at(-1)?.orden ?? -1) + 1, recargar);
       else if (acc === 'editar-bloque' && bloque) modalBloque(a, bloque, bloque.orden, recargar);
-      else if ((acc === 'subir' || acc === 'bajar') && bloque) {
-        const i = bloques.indexOf(bloque), j = acc === 'subir' ? i - 1 : i + 1;
-        if (j < 0 || j >= bloques.length) return;
-        [bloques[i], bloques[j]] = [bloques[j], bloques[i]];
-        const cambios = bloques.map((x, k) => ({ x, k })).filter(({ x, k }) => x.orden !== k);
-        const res = await Promise.all(cambios.map(({ x, k }) => sb.from('actividad_bloques').update({ orden: k }).eq('id', x.id)));
-        const err = res.find(r => r.error)?.error;
-        if (err) throw err;
-        await recargar();
+      else if (acc === 'canciones-bloque' && bloque) modalCancionesBloque(a, bloque, bloques, itemsDia || [], recargar);
+      else if (acc === 'nuevo-mom' && bloque) modalMomento(bloque, null, (bloque.momentos.at(-1)?.orden ?? -1) + 1, recargar);
+      else if (acc === 'editar-mom' && mom) modalMomento(bloque, mom, mom.orden, recargar);
+      else if ((acc === 'subir-mom' || acc === 'bajar-mom') && mom) {
+        const i = bloque.momentos.indexOf(mom);
+        await reordenar('bloque_momentos', bloque.momentos, i, acc === 'subir-mom' ? i - 1 : i + 1);
+      } else if ((acc === 'subir' || acc === 'bajar') && bloque) {
+        const i = bloques.indexOf(bloque);
+        await reordenar('actividad_bloques', bloques, i, acc === 'subir' ? i - 1 : i + 1);
       } else if (acc === 'borrar-com') {
         if (!confirm('¿Borrar este comentario?')) return;
         const { error } = await sb.from('bloque_comentarios').delete().eq('id', b.dataset.id);
@@ -3809,6 +3935,44 @@ async function vistaActividad(ctx) {
   };
 }
 
+function modalMomento(b, m, orden, alGuardar) {
+  const x = m || {};
+  const body = abrirModal(m ? 'Editar momento' : `Nuevo momento · ${b.titulo}`, `
+    <form id="fMom">
+      <div class="fila">
+        <div style="flex:0 0 34%"><label>Hora</label><input name="hora" maxlength="20" value="${esc(x.hora || '')}" placeholder="7:02"></div>
+        <div><label>Qué pasa</label><input name="titulo" required maxlength="150" value="${esc(x.titulo || '')}" placeholder="Ej.: Entrada de la banda · Pastor J. M."></div>
+      </div>
+      <label>Detalle</label><input name="detalle" maxlength="1000" value="${esc(x.detalle || '')}" placeholder="Ej.: Medley urbano, 2 canciones, de memoria">
+      <div class="fila">
+        <div style="flex:0 0 34%"><label>Minutos</label><input name="minutos" type="number" min="0" max="600" inputmode="numeric" value="${esc(x.minutos ?? '')}"></div>
+        <div><label class="check" style="margin-top:30px"><input type="checkbox" name="destacado" ${x.destacado ? 'checked' : ''}> ⭐ Destacar (intercesión, enseñanza…)</label></div>
+      </div>
+      <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn prim" type="submit">${m ? 'Guardar' : 'Agregar momento'}</button></div>
+      ${m ? '<button type="button" class="btn peligro blk" data-borrar style="margin-top:18px">Eliminar momento</button>' : ''}
+    </form>`);
+  const form = $('#fMom', body);
+  form.querySelector('[data-borrar]')?.addEventListener('click', async () => {
+    if (!confirm(`¿Eliminar "${m.titulo}"?`)) return;
+    const { error } = await sb.from('bloque_momentos').delete().eq('id', m.id);
+    if (error) return fallo(error, 'Momento');
+    cerrarModal(); toast('Momento eliminado'); alGuardar();
+  });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    await ocupado(form.querySelector('[type=submit]'), async () => {
+      const min = form.minutos.value === '' ? null : parseInt(form.minutos.value, 10);
+      const datos = { hora: form.hora.value.trim() || null, titulo: form.titulo.value.trim(), detalle: form.detalle.value.trim() || null,
+        minutos: Number.isFinite(min) ? min : null, destacado: form.destacado.checked };
+      const { error } = m ? await sb.from('bloque_momentos').update(datos).eq('id', m.id)
+        : await sb.from('bloque_momentos').insert({ ...datos, bloque_id: b.id, orden });
+      if (faltaPrograma(error)) return toast(avisoPrograma, true);
+      if (error) return fallo(error, 'Momento');
+      cerrarModal(); toast(m ? 'Momento guardado' : 'Momento agregado'); alGuardar();
+    });
+  };
+}
+
 async function modalActividad(a) {
   const desde = new Date(Date.now() - 30 * 864e5).toISOString();
   const { data: dias } = await sb.from('setlists').select('id, titulo, fecha').gte('fecha', desde).order('fecha').limit(120);
@@ -3821,6 +3985,12 @@ async function modalActividad(a) {
         `<option value="${d.id}" ${d.id === x.setlist_id ? 'selected' : ''}>${esc(fmtCorta(d.fecha))} · ${esc(d.titulo)}</option>`).join('')}</select>
       <p class="ayuda" style="margin:4px 0 0">Si eliges un día, comentan quienes sirven ese día y los bloques salen en el link de solo lectura.</p>
       <label>Fecha</label><input name="fecha" type="date" value="${esc(x.fecha || '')}">
+      <label>Lema (opcional)</label><input name="lema" maxlength="150" value="${esc(x.lema || '')}" placeholder="Ej.: Una adoración sin principio ni fin">
+      <div class="fila">
+        <div><label>Inicio</label><input name="hora_inicio" maxlength="20" value="${esc(x.hora_inicio || '')}" placeholder="7:00 p. m."></div>
+        <div><label>Cierre</label><input name="hora_cierre" maxlength="20" value="${esc(x.hora_cierre || '')}" placeholder="10:00 p. m."></div>
+        <div><label>A más tardar</label><input name="hora_limite" maxlength="20" value="${esc(x.hora_limite || '')}" placeholder="10:30 p. m."></div>
+      </div>
       <label>Descripción</label><textarea name="descripcion" maxlength="2000" rows="3" placeholder="Objetivo, lugar, indicaciones generales…">${esc(x.descripcion || '')}</textarea>
       <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn prim" type="submit">${a ? 'Guardar' : 'Crear actividad'}</button></div>
       ${a ? '<button type="button" class="btn peligro blk" data-borrar style="margin-top:18px">Eliminar actividad</button>' : ''}
@@ -3846,9 +4016,14 @@ async function modalActividad(a) {
         fecha: form.fecha.value || (d ? claveDia(new Date(d.fecha)) : null),
         descripcion: form.descripcion.value.trim() || null,
       };
+      const extra = { lema: form.lema.value.trim() || null, hora_inicio: form.hora_inicio.value.trim() || null,
+        hora_cierre: form.hora_cierre.value.trim() || null, hora_limite: form.hora_limite.value.trim() || null };
+      // Solo se envían si hay algo (así funciona aunque falte el script 021)
+      if (Object.values(extra).some(Boolean) || (a && (a.lema || a.hora_inicio || a.hora_cierre || a.hora_limite))) Object.assign(datos, extra);
       const q = a ? sb.from('actividades').update(datos).eq('id', a.id).select('id').single()
         : sb.from('actividades').insert({ ...datos, creado_por: st.uid }).select('id').single();
       const { data, error } = await q;
+      if (faltaPrograma(error)) return toast(avisoPrograma, true);
       if (faltaActividades(error) && /does not exist|schema cache/i.test(error.message || '')) return toast('Ejecuta supabase/020_actividades_medleys.sql en Supabase', true);
       if (error) return fallo(error, 'Actividad');
       cerrarModal(); toast(a ? 'Actividad guardada' : 'Actividad creada');
@@ -3857,18 +4032,51 @@ async function modalActividad(a) {
   };
 }
 
+function modalCancionesBloque(a, b, bloques, items, alGuardar) {
+  const nombreBloque = new Map(bloques.map(x => [x.id, x.titulo]));
+  const body = abrirModal(`Canciones · ${b.titulo}`, `
+    <form id="fCB">
+      ${items.length ? `<p class="ayuda" style="margin-top:0">Marca las canciones del día que van en este bloque. Si una ya está en otro bloque, al marcarla se mueve aquí.</p>
+      <div class="lista">${items.map(it => `<label class="item cb-fila">
+        <input type="checkbox" name="it" value="${it.id}" ${it.bloque_id === b.id ? 'checked' : ''}>
+        <div class="info"><b>${it.cancion.artista === 'Medley' ? '🔗 ' : ''}${esc(it.cancion.titulo)}</b><small>${[it.cantante_id ? '🎤 ' + nombreCorto(it.cantante_id) : '',
+          it.bloque_id && it.bloque_id !== b.id && nombreBloque.has(it.bloque_id) ? '📋 en ' + nombreBloque.get(it.bloque_id) : ''].filter(Boolean).map(esc).join(' · ')}</small></div>
+        <span class="tono-pill">${esc(tonoTxt(it.tono || it.cancion.tono_original))}</span></label>`).join('')}</div>`
+      : '<div class="vacio">El día aún no tiene canciones.</div>'}
+      <p class="ayuda">¿Falta una canción? <a href="#/dia/${a.setlist_id}">Agrégala en el día</a> y luego vuelve aquí.</p>
+      <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button>${items.length ? '<button class="btn prim" type="submit">Guardar</button>' : ''}</div>
+    </form>`);
+  const form = $('#fCB', body);
+  form.querySelector('a')?.addEventListener('click', cerrarModal);
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const marcadas = new Set([...form.querySelectorAll('input[name=it]:checked')].map(x => x.value));
+    const cambios = items.map(it => ({ it, nuevo: marcadas.has(it.id) ? b.id : (it.bloque_id === b.id ? null : it.bloque_id) }))
+      .filter(({ it, nuevo }) => (it.bloque_id || null) !== nuevo);
+    await ocupado(form.querySelector('[type=submit]'), async () => {
+      const res = await Promise.all(cambios.map(({ it, nuevo }) => sb.from('setlist_items').update({ bloque_id: nuevo }).eq('id', it.id)));
+      const err = res.find(r => r.error)?.error;
+      if (err) return fallo(err, 'Canciones del bloque');
+      cerrarModal(); toast(cambios.length ? 'Canciones del bloque guardadas' : 'Sin cambios'); alGuardar();
+    });
+  };
+}
+
 function modalBloque(a, b, orden, alGuardar) {
   const x = b || {};
   const body = abrirModal(b ? 'Editar bloque' : 'Nuevo bloque', `
     <form id="fBlq">
+      <label>Nombre del bloque</label><input name="titulo" required maxlength="120" value="${esc(x.titulo || '')}" placeholder="Ej.: Alabanza y adoración en el cielo">
+      <label>Etiqueta (opcional)</label><input name="etiqueta" maxlength="60" value="${esc(x.etiqueta || '')}" placeholder="Ej.: Urbano · Antes de la creación">
       <div class="fila">
-        <div style="flex:0 0 34%"><label>Hora</label><input name="hora" maxlength="20" value="${esc(x.hora || '')}" placeholder="7:00 p. m."></div>
-        <div><label>Bloque</label><input name="titulo" required maxlength="120" value="${esc(x.titulo || '')}" placeholder="Ej.: Alabanza, Ofrenda, Predicación"></div>
+        <div><label>Desde</label><input name="hora" maxlength="20" value="${esc(x.hora || '')}" placeholder="7:00"></div>
+        <div><label>Hasta</label><input name="hora_fin" maxlength="20" value="${esc(x.hora_fin || '')}" placeholder="8:12"></div>
       </div>
+      <label>Citas bíblicas (opcional)</label><input name="citas" maxlength="300" value="${esc(x.citas || '')}" placeholder="Ej.: Juan 1:1-3 · Salmos 90:2 · Apocalipsis 4:8-11">
       <label>Responsable</label>
       <select name="responsable_id"><option value="">Sin responsable</option>${aprobados().map(p =>
         `<option value="${p.id}" ${p.id === x.responsable_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
-      <label>Detalles</label><textarea name="descripcion" maxlength="2000" rows="4" placeholder="Qué se hace, canciones, indicaciones para el equipo…">${esc(x.descripcion || '')}</textarea>
+      <label>Detalles</label><textarea name="descripcion" maxlength="2000" rows="3" placeholder="Indicaciones generales del bloque (los pasos van como momentos)">${esc(x.descripcion || '')}</textarea>
       <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn prim" type="submit">${b ? 'Guardar' : 'Agregar bloque'}</button></div>
       ${b ? '<button type="button" class="btn peligro blk" data-borrar style="margin-top:18px">Eliminar bloque</button>' : ''}
     </form>`);
@@ -3884,8 +4092,11 @@ function modalBloque(a, b, orden, alGuardar) {
     await ocupado(form.querySelector('[type=submit]'), async () => {
       const datos = { titulo: form.titulo.value.trim(), hora: form.hora.value.trim() || null,
         responsable_id: form.responsable_id.value || null, descripcion: form.descripcion.value.trim() || null };
+      const extra = { etiqueta: form.etiqueta.value.trim() || null, hora_fin: form.hora_fin.value.trim() || null, citas: form.citas.value.trim() || null };
+      if (Object.values(extra).some(Boolean) || (b && (b.etiqueta || b.hora_fin || b.citas))) Object.assign(datos, extra);
       const { error } = b ? await sb.from('actividad_bloques').update(datos).eq('id', b.id)
         : await sb.from('actividad_bloques').insert({ ...datos, actividad_id: a.id, orden });
+      if (faltaPrograma(error)) return toast(avisoPrograma, true);
       if (error) return fallo(error, 'Bloque');
       cerrarModal(); toast(b ? 'Bloque guardado' : 'Bloque agregado'); alGuardar();
     });

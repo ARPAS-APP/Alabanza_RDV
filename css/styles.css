@@ -1106,14 +1106,15 @@ body.mod-disc .m-osc { display: none !important; }
 /* ---------- actividades ---------- */
 .act-link { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--texto); }
 .act-link .info { flex: 1; min-width: 0; }
-.bloque-top { display: flex; align-items: center; gap: 8px; }
-.bloque-top h3 { margin: 0; font-size: 17px; flex: 1; min-width: 0; }
-.bloque-acc { display: flex; gap: 2px; }
+.bloque-acc { display: flex; gap: 2px; justify-content: flex-end; margin: -4px 0 4px; }
 .bloque-acc .btn-ico:disabled { opacity: .3; }
 .bloque-resp { margin: 6px 0 0; color: var(--texto-2); font-size: 14px; }
 .bloque-desc { white-space: pre-line; margin: 8px 0 0; }
 .card.bloque-desc { margin: 0 0 12px; }
-.bloque-coms { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--borde); display: grid; gap: 10px; }
+.bloque-coms { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--borde); }
+.bloque-coms > summary { cursor: pointer; font-weight: 600; color: var(--texto-2); font-size: 14px; }
+.bloque-coms[open] > summary { margin-bottom: 10px; }
+.bloque-coms > .bcom, .bloque-coms > .bcom-form { margin-top: 10px; }
 .bcom { display: flex; gap: 8px; align-items: flex-start; }
 .bcom .avatar.sm { width: 28px; height: 28px; font-size: 11px; flex: none; }
 .bcom-c { flex: 1; min-width: 0; }
@@ -1128,3 +1129,68 @@ body.mod-disc .m-osc { display: none !important; }
 .pg-blq { margin: 8px 0 4px; }
 .pg-blq-i { padding: 4px 0 4px 10px; border-left: 2px solid var(--borde); margin: 2px 0; }
 .pg-blq-i small { display: block; color: var(--texto-3); white-space: pre-line; }
+
+/* ---------- canciones dentro de un bloque ---------- */
+.bloque-cans { margin-top: 10px; display: grid; gap: 6px; }
+.bloque-cans > .btn { justify-self: start; margin: 0; }
+.bloque-can { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--bg-2); text-decoration: none; color: var(--texto); }
+.bloque-can .bc-t { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.bloque-can .bc-t small { display: block; font-weight: 400; color: var(--texto-3); }
+.bloque-can .tono-pill { font-size: 13px; min-width: 38px; padding: 3px 6px; }
+.tag-bloque { color: var(--acento-2); }
+.cb-fila { cursor: pointer; }
+.cb-fila input { width: 20px; height: 20px; flex: none; margin: 0; }
+
+/* ---------- programa de una actividad (estilo afiche) ---------- */
+.act-hero { margin: 4px 0 14px; }
+.act-eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--acento-2); }
+.act-tit { margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-size: clamp(30px, 8vw, 44px); line-height: 1.05; letter-spacing: -.01em; text-wrap: balance; }
+.act-lema { margin: 6px 0 0; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 17px; color: var(--texto-2); }
+.act-horas { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; margin-top: 14px; }
+.act-horas div { border: 1px solid var(--borde); border-radius: 12px; padding: 8px 10px; text-align: center; background: var(--card); }
+.act-horas b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.act-horas small { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--acento-2); }
+.linea-t { position: relative; margin: 6px 0 18px; }
+.lt-nombres, .lt-barra, .lt-horas { position: relative; }
+.lt-nombres { height: 18px; }
+.lt-nombres span { position: absolute; top: 0; text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box; }
+.lt-barra { height: 8px; border-radius: 4px; background: var(--bg-2); }
+.lt-barra i { position: absolute; top: 0; bottom: 0; border-radius: 4px; border-right: 2px solid var(--bg); box-sizing: border-box; }
+.lt-horas { height: 16px; margin-top: 3px; }
+.lt-horas span { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--texto-3); font-variant-numeric: tabular-nums; }
+.lt-horas span.ini { transform: none; }
+.lt-horas span.fin { transform: translateX(-100%); }
+.bloques { display: grid; gap: 12px; }
+.bloques > .card { margin: 0; }
+.bloque { border-top: 3px solid var(--c, var(--acento)); }
+.bloque-top { display: flex; align-items: flex-start; gap: 10px; }
+.bloque-num { font-family: Georgia, "Times New Roman", serif; font-size: 34px; line-height: .9; color: var(--c, var(--acento)); flex: none; min-width: 30px; }
+.bloque-tt { flex: 1; min-width: 0; }
+.bloque-tt small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--texto-3); }
+.bloque-tt h3 { margin: 2px 0 0; font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-size: 21px; line-height: 1.15; }
+.bloque-rango { flex: none; font-size: 13px; color: var(--texto-2); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.bloque-citas { margin-top: 10px; padding: 6px 10px; border-left: 2px solid var(--c, var(--acento)); border-radius: 0 8px 8px 0; background: var(--bg-2); font-size: 13px; color: var(--texto-2); }
+.moms { margin-top: 8px; }
+.mom { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--borde); }
+.mom-h { flex: 0 0 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mom-c { flex: 1; min-width: 0; }
+.mom-c b { display: block; }
+.mom-c small { display: block; color: var(--texto-3); white-space: pre-line; }
+.mom-min { flex: none; font-size: 12.5px; color: var(--texto-3); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.mom.dest .mom-h, .mom.dest .mom-c b, .mom.dest .mom-min { color: var(--acento-2); }
+.mom-acc { display: flex; flex: none; }
+.mom-acc .btn-ico { width: 30px; height: 30px; font-size: 13px; }
+.mom-acc .btn-ico:disabled { opacity: .3; }
+.bloque-add { margin-top: 10px; gap: 8px; }
+.bloque-add .btn { margin: 0; }
+.act-pie { text-align: center; margin-top: 14px; }
+.pg-lema { display: block; color: var(--texto-2); font-style: italic; margin: -2px 0 4px; }
+.pg-rango { color: var(--texto-3); font-variant-numeric: tabular-nums; }
+.pg-mom { display: flex; gap: 8px; padding: 3px 0; font-size: 14px; }
+.pg-mom > span { flex: 0 0 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pg-mom > div { flex: 1; min-width: 0; }
+.pg-mom em { flex: none; font-style: normal; color: var(--texto-3); font-size: 12px; }
+.pg-mom.dest > span, .pg-mom.dest > div { color: var(--acento-2); }
+.act-horas b { font-size: clamp(14px, 4.2vw, 18px); white-space: nowrap; }
+.act-horas small { white-space: nowrap; }
+@media (max-width: 420px) { .act-horas small { letter-spacing: .06em; font-size: 9.5px; } .act-horas div { padding: 8px 4px; } }
