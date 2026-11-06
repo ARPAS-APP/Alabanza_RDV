@@ -3,6 +3,7 @@ import { SUPABASE_URL, SUPABASE_KEY, APP_NOMBRE, INSTRUMENTOS, NOTAS_TABS, REACC
 import {
   TONOS_MAYORES, TONOS_MENORES, TODOS_LOS_TONOS, parseTono, usaBemoles, distancia,
   transponerTono, renderLetra, primerAcorde, cifrado, esAcorde, acordesDelTono, aCorchetes, transponerAcorde,
+  seccionesDe, componerMedley,
 } from './acordes.js';
 import { generarCifrado, renderCifrado, erroresCifrado, AYUDA_CIFRADO, leerIreal } from './cifrado.js';
 import { crearReproductor, desbloquearAudio } from './audio-ref.js';
@@ -447,12 +448,14 @@ const RUTAS = {
   dia: vistaDia,
   ensayo: vistaDia,
   plan: vistaPlan,
+  actividades: vistaActividades,
+  actividad: vistaActividad,
   equipo: vistaEquipo,
   perfil: vistaPerfil,
   novedades: vistaNovedades,
   d: ctx => disc.vista(ctx),
 };
-const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', perfil: 'equipo', novedades: 'equipo' };
+const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', actividad: 'actividades', perfil: 'equipo', novedades: 'equipo' };
 
 window.addEventListener('hashchange', () => st.perfil?.estado === 'aprobado' && rutear());
 
@@ -764,7 +767,7 @@ async function vistaCanciones(ctx) {
     if (soloOlv) res.sort((a, b) => (hist.get(a.id)?.ultima_vez || '').localeCompare(hist.get(b.id)?.ultima_vez || ''));
     $('#lista').innerHTML = res.map(c => `
       <a class="item" href="#/cancion/${c.id}">
-        <div class="info"><b>${ICON_RITMO[c.ritmo] ? `<span title="${esc(RITMOS[c.ritmo])}">${ICON_RITMO[c.ritmo]}</span> ` : ''}${esc(c.titulo)}</b><small>${esc(c.artista || 'Sin artista')}${partes[c.id] ? ' · 📄 ' + [...partes[c.id]].map(i => ICON_INSTR[i] || '📄').join('') : ''}${hist.size ? ` · <span class="uso ${frescura(hist.get(c.id))}">🕒 ${esc(txtUltima(hist.get(c.id)?.ultima_vez))}</span>` : ''}</small></div>
+        <div class="info"><b>${ICON_RITMO[c.ritmo] ? `<span title="${esc(RITMOS[c.ritmo])}">${ICON_RITMO[c.ritmo]}</span> ` : ''}${c.artista === 'Medley' ? '<span title="Medley">🔗</span> ' : ''}${esc(c.titulo)}</b><small>${esc(c.artista || 'Sin artista')}${partes[c.id] ? ' · 📄 ' + [...partes[c.id]].map(i => ICON_INSTR[i] || '📄').join('') : ''}${hist.size ? ` · <span class="uso ${frescura(hist.get(c.id))}">🕒 ${esc(txtUltima(hist.get(c.id)?.ultima_vez))}</span>` : ''}</small></div>
         <span class="tono-pill">${esc(tonoTxt(c.tono_original))}</span>
       </a>`).join('') || `<div class="vacio"><span class="grande">🎵</span>${data.length ? 'Sin resultados.' : 'Aún no hay canciones.'}${!data.length && esAdmin() ? '<br>Toca <b>+</b> para agregar la primera.' : ''}</div>`;
   };
@@ -772,10 +775,158 @@ async function vistaCanciones(ctx) {
   cargarHistorial().then(h => { hist = h; if (ctx.vigente() && $('#lista')) pintar(); });
   app.oninput = e => { if (e.target.id === 'busca') { pintar(); history.replaceState(null, '', '#/canciones' + (e.target.value ? '?b=' + encodeURIComponent(e.target.value) : '')); } };
   app.onclick = e => {
-    if (e.target.closest('[data-acc=nueva]')) return modalCancion(null);
+    if (e.target.closest('[data-acc=nueva]')) return elegirNueva();
     const b = e.target.closest('[data-p]');
     if (b) { soloPart = b.dataset.p === '1'; soloOlv = b.dataset.p === 'olv'; filtroRitmo = RITMOS[b.dataset.p] ? b.dataset.p : ''; $('#segPart').querySelectorAll('button').forEach(x => x.classList.toggle('activo', x === b)); pintar(); }
   };
+}
+
+function elegirNueva() {
+  const body = abrirModal('Agregar', `
+    <div class="lista">
+      <button type="button" class="item" data-nueva="cancion"><div class="info"><b>🎵 Canción nueva</b><small>Con su letra, acordes, tono y audio</small></div></button>
+      <button type="button" class="item" data-nueva="medley"><div class="info"><b>🔗 Medley o mashup</b><small>Une partes de 2 o más canciones que ya están en el repertorio</small></div></button>
+    </div>`);
+  body.querySelector('.lista').onclick = e => {
+    const b = e.target.closest('[data-nueva]');
+    if (!b) return;
+    if (b.dataset.nueva === 'medley') modalMedley(null); else modalCancion(null);
+  };
+}
+
+// ---------- medleys ----------
+const htmlMedley = c => `<div class="card medley-info">
+  <b>🔗 Medley</b>
+  <ol>${c.medley.map(p => `<li><a href="#/cancion/${esc(p.cancion_id)}">${esc(p.titulo || 'Canción')}</a>
+    <small>${esc(p.nombres?.length ? p.nombres.join(', ') : 'Toda la canción')}${p.tono ? ' · ' + esc(tonoTxt(p.tono)) : ''}</small></li>`).join('')}</ol>
+  ${esAdmin() ? '<button class="btn sm" data-acc="actualizar-medley">🔄 Actualizar letra desde las canciones</button>' : ''}
+</div>`;
+
+async function modalMedley(c) {
+  const { data: todas, error } = await sb.from('canciones').select('id, titulo, artista, tono_original, letra, bpm, compas' + (st.faltaV6 ? '' : ', ritmo')).order('titulo');
+  if (error) return fallo(error, 'Medley');
+  const fuentes = todas.filter(x => x.artista !== 'Medley' && x.id !== c?.id);
+  const porId = new Map(fuentes.map(x => [x.id, x]));
+  let partes = (c?.medley || []).filter(p => porId.has(p.cancion_id)).map(p => ({ cancion_id: p.cancion_id, secciones: [...(p.secciones || [])], tono: p.tono || '' }));
+  while (partes.length < 2) partes.push({ cancion_id: '', secciones: [], tono: '' });
+  const body = abrirModal(c ? 'Editar medley' : 'Nuevo medley', `
+    <form id="fMed">
+      <p class="ayuda" style="margin-top:0">Une partes de 2 o más canciones sin crearlas de nuevo. De cada una elige solo lo que se canta y en qué tono.</p>
+      <label>Nombre del medley</label>
+      <input name="titulo" maxlength="150" value="${esc(c?.titulo || '')}" placeholder="Si lo dejas vacío, se usan los nombres de las canciones">
+      <div id="medPartes"></div>
+      <button type="button" class="btn sm" data-med="agregar">＋ Agregar canción</button>
+      <label>Así queda</label>
+      <div class="card med-prev" id="medPrev"></div>
+      <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn prim" type="submit">${c ? 'Guardar cambios' : 'Crear medley'}</button></div>
+    </form>`);
+  const form = $('#fMed', body);
+  const opciones = sel => '<option value="">Elige una canción…</option>' + fuentes.map(x =>
+    `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.titulo)}${x.artista ? ' · ' + esc(x.artista) : ''}</option>`).join('');
+  const vista = () => {
+    const txt = componerMedley(partes.filter(p => p.cancion_id), porId);
+    $('#medPrev', body).innerHTML = txt ? renderLetra(txt, { acordes: ajustes.acordes, latino: ajustes.latino }) : '<p class="ayuda" style="margin:0">Elige las canciones para ver cómo queda.</p>';
+  };
+  const pintar = () => {
+    $('#medPartes', body).innerHTML = partes.map((p, i) => {
+      const src = porId.get(p.cancion_id);
+      const secs = src ? seccionesDe(src.letra || '') : [];
+      return `<div class="card med-parte" data-i="${i}">
+        <div class="med-fila"><b>${i + 1}.</b>
+          <select data-med="cancion" aria-label="Canción ${i + 1}">${opciones(p.cancion_id)}</select>
+          <button type="button" class="btn-ico" data-med="subir" ${i === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
+          <button type="button" class="btn-ico" data-med="bajar" ${i === partes.length - 1 ? 'disabled' : ''} aria-label="Bajar">↓</button>
+          <button type="button" class="btn-ico" data-med="quitar" aria-label="Quitar">×</button>
+        </div>
+        ${src ? `
+          <label>Tono de esta parte</label>
+          <select data-med="tono">${opcionesTono(p.tono || src.tono_original, TODOS_LOS_TONOS, 'Como está escrita')}</select>
+          ${parseTono(src.tono_original) ? '' : '<p class="ayuda" style="margin:4px 0 0">Esta canción no tiene tono original: sus acordes quedan como están escritos.</p>'}
+          <label>Partes que se cantan</label>
+          ${secs.length ? `<div class="med-secs">${secs.map((s, k) => `<label class="check"><input type="checkbox" data-med="sec" value="${k}" ${p.secciones.includes(k) ? 'checked' : ''}> ${esc(s.nombre)}</label>`).join('')}</div>
+          <p class="ayuda" style="margin:4px 0 0">${p.secciones.length ? `${p.secciones.length} de ${secs.length} partes` : 'Si no marcas ninguna, va la canción completa.'}</p>`
+          : '<p class="ayuda">Esta canción no tiene letra cargada.</p>'}` : ''}
+      </div>`;
+    }).join('');
+    vista();
+  };
+  form.onchange = e => {
+    const el = e.target, card = el.closest('.med-parte');
+    if (!card) return;
+    const p = partes[+card.dataset.i];
+    if (el.dataset.med === 'cancion') { p.cancion_id = el.value; p.secciones = []; p.tono = porId.get(el.value)?.tono_original || ''; pintar(); }
+    else if (el.dataset.med === 'tono') { p.tono = el.value; vista(); }
+    else if (el.dataset.med === 'sec') { p.secciones = [...card.querySelectorAll('[data-med=sec]:checked')].map(x => +x.value); pintar(); }
+  };
+  form.onclick = e => {
+    const b = e.target.closest('button[data-med]');
+    if (!b) return;
+    const i = +b.closest('.med-parte')?.dataset.i;
+    const acc = b.dataset.med;
+    if (acc === 'agregar') partes.push({ cancion_id: '', secciones: [], tono: '' });
+    else if (acc === 'quitar') partes.splice(i, 1);
+    else if (acc === 'subir' && i > 0) [partes[i - 1], partes[i]] = [partes[i], partes[i - 1]];
+    else if (acc === 'bajar' && i < partes.length - 1) [partes[i + 1], partes[i]] = [partes[i], partes[i + 1]];
+    else return;
+    pintar();
+  };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const usadas = partes.filter(p => p.cancion_id);
+    if (usadas.length < 2) return toast('Elige al menos 2 canciones', true);
+    await ocupado(form.querySelector('[type=submit]'), () => guardarMedley(c, usadas, form.titulo.value.trim(), porId));
+  };
+  pintar();
+}
+
+/** Datos que se guardan del medley (se guarda también la letra ya unida, para que funcione en todo: en vivo, sin internet, programa). */
+function datosMedley(partes, porId) {
+  return partes.map(p => {
+    const src = porId.get(p.cancion_id);
+    const secs = seccionesDe(src.letra || '');
+    return { cancion_id: p.cancion_id, titulo: src.titulo, secciones: p.secciones || [],
+      nombres: (p.secciones || []).map(k => secs[k]?.nombre).filter(Boolean),
+      tono: parseTono(p.tono) ? p.tono : (parseTono(src.tono_original) ? src.tono_original : null) };
+  });
+}
+
+async function guardarMedley(c, partes, titulo, porId) {
+  const primera = porId.get(partes[0].cancion_id);
+  const medley = datosMedley(partes, porId);
+  const datos = {
+    titulo: titulo || medley.map(p => p.titulo).join(' / ').slice(0, 150),
+    artista: 'Medley',
+    tono_original: medley[0].tono,
+    bpm: primera.bpm || null,
+    compas: primera.compas || null,
+    letra: componerMedley(medley, porId),
+    medley,
+  };
+  if (!st.faltaV6) datos.ritmo = primera.ritmo || null;
+  const q = c
+    ? sb.from('canciones').update(datos).eq('id', c.id).select('id').single()
+    : sb.from('canciones').insert({ ...datos, creado_por: st.uid }).select('id').single();
+  const { data, error } = await q;
+  if (error) {
+    if (/medley/.test(error.message || '')) return toast('Falta activar los medleys: ejecuta supabase/020_actividades_medleys.sql en Supabase', true);
+    return fallo(error, 'Medley');
+  }
+  cerrarModal(); toast(c ? 'Medley actualizado' : 'Medley creado');
+  if (c) rutear(); else location.hash = '#/cancion/' + data.id;
+}
+
+async function actualizarMedley(c) {
+  const ids = c.medley.map(p => p.cancion_id);
+  const { data, error } = await sb.from('canciones').select('id, titulo, tono_original, letra').in('id', ids);
+  if (error) return fallo(error, 'Medley');
+  const porId = new Map(data.map(x => [x.id, x]));
+  const partes = c.medley.filter(p => porId.has(p.cancion_id));
+  if (!partes.length) return toast('Las canciones de este medley ya no existen', true);
+  const medley = datosMedley(partes, porId);
+  const { error: e2 } = await sb.from('canciones').update({ letra: componerMedley(medley, porId), medley }).eq('id', c.id);
+  if (e2) return fallo(e2, 'Medley');
+  toast(partes.length < c.medley.length ? 'Letra actualizada (se quitó una canción que ya no existe)' : 'Letra del medley actualizada');
+  rutear();
 }
 
 function modalCancion(c) {
@@ -1138,6 +1289,7 @@ async function vistaCancion(ctx) {
       ${vivo ? `<button class="chip vivo ${st.seguirVivo ? 'activo' : ''}" data-acc="seguir" style="margin-bottom:10px">
         <span class="punto-vivo"></span>${st.seguirVivo ? (esAdmin() ? 'En vivo · tú controlas' : 'Siguiendo en vivo') : 'Libre · toca para volver al en vivo'}</button>` : ''}
       <div class="cancion-meta">${meta}</div>
+      ${Array.isArray(c.medley) && c.medley.length ? htmlMedley(c) : ''}
       ${itemSet?.notas ? `<div class="card" style="padding:10px 12px">📝 ${esc(itemSet.notas)}</div>` : ''}
       <div class="controles">
         <div class="tono-actual" role="group" aria-label="Tono">
@@ -1354,7 +1506,8 @@ async function vistaCancion(ctx) {
       if (p.ruta) sb.storage.from('partituras').remove([p.ruta]);
       toast('Partitura eliminada'); rutear();
     }
-    else if (acc === 'editar') modalCancion(c);
+    else if (acc === 'editar') (Array.isArray(c.medley) && c.medley.length ? modalMedley(c) : modalCancion(c));
+    else if (acc === 'actualizar-medley') actualizarMedley(c);
     else if (acc === 'borrar') {
       if (!confirm(`¿Eliminar "${c.titulo}"? También se borran sus notas, tonos y su lugar en los ensayos.`)) return;
       const { error } = await sb.from('canciones').delete().eq('id', id);
@@ -2738,6 +2891,12 @@ async function vistaDia(ctx) {
     </div>
     ${htmlChat()}
     ${esAdmin() ? `<button class="btn peligro blk" data-acc="borrar" style="margin-top:28px">Eliminar día</button>` : ''}`;
+  // Actividades ligadas a este día (bloques del programa)
+  sb.from('actividades').select('id, titulo, bloques:actividad_bloques(id)').eq('setlist_id', s.id).then(({ data }) => {
+    if (!ctx.vigente() || !data?.length) return;
+    app.querySelector('header.top')?.insertAdjacentHTML('afterend', data.map(a =>
+      `<a class="card item act-link" href="#/actividad/${a.id}"><div class="info"><b>📋 ${esc(a.titulo)}</b><small>${a.bloques.length} ${a.bloques.length === 1 ? 'bloque' : 'bloques'} · toca para ver y comentar</small></div><span aria-hidden="true">›</span></a>`).join(''));
+  });
 
   // Si alguien inicia/termina el en vivo, refrescar
   if (!st.faltaV2) {
@@ -3506,6 +3665,227 @@ async function compartirDia(s, items) {
 // =====================================================================
 // EQUIPO
 // =====================================================================
+// =====================================================================
+// ACTIVIDADES (bloques con comentarios)
+// =====================================================================
+const faltaActividades = error => error && (error.code === '42P01' || error.code === 'PGRST205' || /actividad|bloque/i.test(error.message || ''));
+const avisoActividades = () => `<div class="card"><b>⚠️ Falta activar Actividades</b><p class="ayuda" style="margin-bottom:0">${esAdmin()
+  ? 'Ejecuta <b>supabase/020_actividades_medleys.sql</b> en Supabase → SQL Editor y vuelve a abrir esta pestaña.'
+  : 'Un administrador debe activarlas. Avísale.'}</p></div>`;
+const fechaAct = a => a.fecha || (a.setlist?.fecha ? claveDia(new Date(a.setlist.fecha)) : null);
+const fmtFechaAct = k => new Date(k + 'T12:00').toLocaleDateString('es-PA', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
+
+async function vistaActividades(ctx) {
+  cargando('Actividades');
+  const { data, error } = await sb.from('actividades')
+    .select('*, setlist:setlists(id, titulo, fecha), bloques:actividad_bloques(id)')
+    .order('fecha', { ascending: true, nullsFirst: false });
+  if (!ctx.vigente()) return;
+  if (faltaActividades(error)) { app.innerHTML = encabezado('Actividades') + avisoActividades(); return; }
+  if (error) return fallo(error, 'Actividades');
+  const hoy = claveDia(new Date());
+  const lista = data.map(a => ({ ...a, f: fechaAct(a) })).sort((x, y) => (x.f || '9999').localeCompare(y.f || '9999'));
+  const prox = lista.filter(a => !a.f || a.f >= hoy), pasadas = lista.filter(a => a.f && a.f < hoy).reverse();
+  const fila = a => `<a class="item" href="#/actividad/${a.id}">
+      ${a.f ? `<div class="fecha-box"><small>${esc(new Date(a.f + 'T12:00').toLocaleDateString('es-PA', { month: 'short' }).replace('.', ''))}</small><b>${new Date(a.f + 'T12:00').getDate()}</b></div>` : '<div class="fecha-box"><small>sin</small><b>📋</b></div>'}
+      <div class="info"><b>${esc(a.titulo)}</b><small>${a.bloques.length} ${a.bloques.length === 1 ? 'bloque' : 'bloques'}${a.setlist ? ' · 📅 ' + esc(a.setlist.titulo) : ''}</small></div>
+      <span aria-hidden="true">›</span></a>`;
+  app.innerHTML = encabezado('Actividades', { sub: 'Bloques por actividad, con comentarios' }) + `
+    ${prox.length ? `<div class="lista">${prox.map(fila).join('')}</div>` : `<div class="vacio"><span class="grande">📋</span>No hay actividades próximas.${esAdmin() ? '<br>Toca <b>+</b> para crear la primera: un servicio especial, un retiro o un ensayo general, dividido en bloques.' : ''}</div>`}
+    ${pasadas.length ? `<details class="card"><summary>Actividades pasadas (${pasadas.length})</summary><div class="lista" style="margin-top:8px">${pasadas.map(fila).join('')}</div></details>` : ''}
+    ${esAdmin() ? '<button class="fab" data-acc="nueva" aria-label="Nueva actividad">+</button>' : ''}`;
+  app.onclick = e => { if (e.target.closest('[data-acc=nueva]')) modalActividad(null); };
+}
+
+async function vistaActividad(ctx) {
+  cargando('Actividad', { atras: '#/actividades' });
+  const id = ctx.id;
+  let a, bloques, puede;
+  const cargar = async () => {
+    const [ra, rb] = await Promise.all([
+      sb.from('actividades').select('*, setlist:setlists(id, titulo, fecha)').eq('id', id).maybeSingle(),
+      sb.from('actividad_bloques').select('*, comentarios:bloque_comentarios(id, autor_id, texto, created_at)').eq('actividad_id', id).order('orden').order('created_at'),
+    ]);
+    if (faltaActividades(ra.error) || faltaActividades(rb.error)) return 'falta';
+    if (ra.error || rb.error) throw ra.error || rb.error;
+    a = ra.data; bloques = rb.data || [];
+    bloques.forEach(b => b.comentarios.sort((x, y) => x.created_at.localeCompare(y.created_at)));
+    puede = esAdmin() || !a?.setlist_id;
+    if (a?.setlist_id && !puede) {
+      const { count } = await sb.from('asignaciones').select('id', { count: 'exact', head: true }).eq('setlist_id', a.setlist_id).eq('perfil_id', st.uid);
+      puede = count > 0;
+    }
+    return 'ok';
+  };
+  const pintar = () => {
+    const f = fechaAct(a);
+    const derecha = esAdmin() ? '<button class="btn-ico" data-acc="editar" aria-label="Editar actividad">✏️</button>' : '';
+    const htmlBloque = (b, i) => `<section class="card bloque" data-b="${b.id}">
+        <div class="bloque-top">
+          ${b.hora ? `<span class="tono-pill">${esc(b.hora)}</span>` : ''}
+          <h3>${esc(b.titulo)}</h3>
+          ${esAdmin() ? `<span class="bloque-acc">
+            <button class="btn-ico" data-acc="subir" ${i === 0 ? 'disabled' : ''} aria-label="Subir bloque">↑</button>
+            <button class="btn-ico" data-acc="bajar" ${i === bloques.length - 1 ? 'disabled' : ''} aria-label="Bajar bloque">↓</button>
+            <button class="btn-ico" data-acc="editar-bloque" aria-label="Editar bloque">✏️</button></span>` : ''}
+        </div>
+        ${b.responsable_id ? `<p class="bloque-resp">👤 ${esc(nombreDe(b.responsable_id))}</p>` : ''}
+        ${b.descripcion ? `<p class="bloque-desc">${esc(b.descripcion)}</p>` : ''}
+        <div class="bloque-coms">
+          ${b.comentarios.map(cm => `<div class="bcom">
+            <span class="avatar sm">${esc(iniciales(nombreDe(cm.autor_id)))}</span>
+            <div class="bcom-c"><b>${esc(nombreCorto(cm.autor_id))}</b> <small>${esc(haceCuanto(cm.created_at))}</small><p>${esc(cm.texto)}</p></div>
+            ${cm.autor_id === st.uid || esAdmin() ? `<button class="btn-ico" data-acc="borrar-com" data-id="${cm.id}" aria-label="Borrar comentario">🗑️</button>` : ''}
+          </div>`).join('')}
+          ${puede ? `<form class="bcom-form" data-b="${b.id}"><input name="t" maxlength="2000" autocomplete="off" placeholder="${b.comentarios.length ? 'Responder…' : 'Escribe un comentario…'}" aria-label="Comentario en ${esc(b.titulo)}"><button class="btn sm prim">Enviar</button></form>`
+            : (b.comentarios.length ? '' : '<p class="ayuda" style="margin:0">Sin comentarios.</p>')}
+        </div>
+      </section>`;
+    app.innerHTML = encabezado(a.titulo, { atras: '#/actividades', sub: f ? fmtFechaAct(f) : 'Sin fecha', derecha }) + `
+      ${a.setlist ? `<a class="card item act-link" href="#/dia/${a.setlist.id}"><div class="info"><b>📅 ${esc(a.setlist.titulo)}</b><small>${esc(fmtFechaLarga(a.setlist.fecha))} · ${esc(fmtHora(a.setlist.fecha))}</small></div><span aria-hidden="true">›</span></a>` : ''}
+      ${a.descripcion ? `<div class="card bloque-desc">${esc(a.descripcion)}</div>` : ''}
+      ${!puede && a.setlist ? '<p class="ayuda">Puedes leer todo. Comentan quienes sirven ese día.</p>' : ''}
+      ${bloques.length ? bloques.map(htmlBloque).join('') : `<div class="vacio"><span class="grande">🧩</span>Esta actividad aún no tiene bloques.${esAdmin() ? '<br>Agrega el primero: por ejemplo "Bienvenida", "Alabanza", "Ofrenda" o "Predicación".' : ''}</div>`}
+      ${esAdmin() ? '<button class="btn prim blk" data-acc="nuevo-bloque" style="margin-top:6px">＋ Agregar bloque</button>' : ''}`;
+  };
+  const recargar = async () => {
+    const y = window.scrollY;
+    if (await cargar() !== 'ok' || !ctx.vigente()) return;
+    if (!a) { app.innerHTML = encabezado('Actividad', { atras: '#/actividades' }) + '<div class="vacio">Esta actividad ya no existe.</div>'; return; }
+    pintar(); window.scrollTo(0, y);
+  };
+  try {
+    const r = await cargar();
+    if (!ctx.vigente()) return;
+    if (r === 'falta') { app.innerHTML = encabezado('Actividad', { atras: '#/actividades' }) + avisoActividades(); return; }
+  } catch (e) { return fallo(e, 'Actividad'); }
+  if (!a) { app.innerHTML = encabezado('Actividad', { atras: '#/actividades' }) + '<div class="vacio">Esta actividad ya no existe.</div>'; return; }
+  pintar();
+
+  app.onclick = async e => {
+    const b = e.target.closest('[data-acc]');
+    if (!b) return;
+    const acc = b.dataset.acc;
+    const bloque = bloques.find(x => x.id === b.closest('[data-b]')?.dataset.b);
+    try {
+      if (acc === 'editar') modalActividad(a);
+      else if (acc === 'nuevo-bloque') modalBloque(a, null, (bloques.at(-1)?.orden ?? -1) + 1, recargar);
+      else if (acc === 'editar-bloque' && bloque) modalBloque(a, bloque, bloque.orden, recargar);
+      else if ((acc === 'subir' || acc === 'bajar') && bloque) {
+        const i = bloques.indexOf(bloque), j = acc === 'subir' ? i - 1 : i + 1;
+        if (j < 0 || j >= bloques.length) return;
+        [bloques[i], bloques[j]] = [bloques[j], bloques[i]];
+        const cambios = bloques.map((x, k) => ({ x, k })).filter(({ x, k }) => x.orden !== k);
+        const res = await Promise.all(cambios.map(({ x, k }) => sb.from('actividad_bloques').update({ orden: k }).eq('id', x.id)));
+        const err = res.find(r => r.error)?.error;
+        if (err) throw err;
+        await recargar();
+      } else if (acc === 'borrar-com') {
+        if (!confirm('¿Borrar este comentario?')) return;
+        const { error } = await sb.from('bloque_comentarios').delete().eq('id', b.dataset.id);
+        if (error) throw error;
+        await recargar();
+      }
+    } catch (err) { fallo(err, 'Actividad'); }
+  };
+  app.onsubmit = async e => {
+    const form = e.target.closest('.bcom-form');
+    if (!form) return;
+    e.preventDefault();
+    const texto = form.t.value.trim();
+    if (!texto) return;
+    const btn = form.querySelector('button');
+    await ocupado(btn, async () => {
+      const { error } = await sb.from('bloque_comentarios').insert({ bloque_id: form.dataset.b, autor_id: st.uid, texto });
+      if (error) return fallo(error, /row-level|policy/i.test(error.message || '') ? 'Solo quienes sirven ese día pueden comentar' : 'Comentario');
+      await recargar();
+    });
+  };
+}
+
+async function modalActividad(a) {
+  const desde = new Date(Date.now() - 30 * 864e5).toISOString();
+  const { data: dias } = await sb.from('setlists').select('id, titulo, fecha').gte('fecha', desde).order('fecha').limit(120);
+  const x = a || {};
+  const body = abrirModal(a ? 'Editar actividad' : 'Nueva actividad', `
+    <form id="fAct">
+      <label>Nombre</label><input name="titulo" required maxlength="150" value="${esc(x.titulo)}" placeholder="Ej.: Noche de alabanza, Retiro, Ensayo general">
+      <label>Día de la agenda (opcional)</label>
+      <select name="setlist_id"><option value="">Sin día · comenta todo el equipo</option>${(dias || []).map(d =>
+        `<option value="${d.id}" ${d.id === x.setlist_id ? 'selected' : ''}>${esc(fmtCorta(d.fecha))} · ${esc(d.titulo)}</option>`).join('')}</select>
+      <p class="ayuda" style="margin:4px 0 0">Si eliges un día, comentan quienes sirven ese día y los bloques salen en el link de solo lectura.</p>
+      <label>Fecha</label><input name="fecha" type="date" value="${esc(x.fecha || '')}">
+      <label>Descripción</label><textarea name="descripcion" maxlength="2000" rows="3" placeholder="Objetivo, lugar, indicaciones generales…">${esc(x.descripcion || '')}</textarea>
+      <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn prim" type="submit">${a ? 'Guardar' : 'Crear actividad'}</button></div>
+      ${a ? '<button type="button" class="btn peligro blk" data-borrar style="margin-top:18px">Eliminar actividad</button>' : ''}
+    </form>`);
+  const form = $('#fAct', body);
+  form.setlist_id.onchange = () => {
+    const d = (dias || []).find(z => z.id === form.setlist_id.value);
+    if (d && !form.fecha.value) form.fecha.value = claveDia(new Date(d.fecha));
+  };
+  form.querySelector('[data-borrar]')?.addEventListener('click', async () => {
+    if (!confirm(`¿Eliminar "${a.titulo}" con todos sus bloques y comentarios?`)) return;
+    const { error } = await sb.from('actividades').delete().eq('id', a.id);
+    if (error) return fallo(error, 'Actividad');
+    cerrarModal(); toast('Actividad eliminada'); location.hash = '#/actividades';
+  });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    await ocupado(form.querySelector('[type=submit]'), async () => {
+      const d = (dias || []).find(z => z.id === form.setlist_id.value);
+      const datos = {
+        titulo: form.titulo.value.trim(),
+        setlist_id: form.setlist_id.value || null,
+        fecha: form.fecha.value || (d ? claveDia(new Date(d.fecha)) : null),
+        descripcion: form.descripcion.value.trim() || null,
+      };
+      const q = a ? sb.from('actividades').update(datos).eq('id', a.id).select('id').single()
+        : sb.from('actividades').insert({ ...datos, creado_por: st.uid }).select('id').single();
+      const { data, error } = await q;
+      if (faltaActividades(error) && /does not exist|schema cache/i.test(error.message || '')) return toast('Ejecuta supabase/020_actividades_medleys.sql en Supabase', true);
+      if (error) return fallo(error, 'Actividad');
+      cerrarModal(); toast(a ? 'Actividad guardada' : 'Actividad creada');
+      if (a) rutear(); else location.hash = '#/actividad/' + data.id;
+    });
+  };
+}
+
+function modalBloque(a, b, orden, alGuardar) {
+  const x = b || {};
+  const body = abrirModal(b ? 'Editar bloque' : 'Nuevo bloque', `
+    <form id="fBlq">
+      <div class="fila">
+        <div style="flex:0 0 34%"><label>Hora</label><input name="hora" maxlength="20" value="${esc(x.hora || '')}" placeholder="7:00 p. m."></div>
+        <div><label>Bloque</label><input name="titulo" required maxlength="120" value="${esc(x.titulo || '')}" placeholder="Ej.: Alabanza, Ofrenda, Predicación"></div>
+      </div>
+      <label>Responsable</label>
+      <select name="responsable_id"><option value="">Sin responsable</option>${aprobados().map(p =>
+        `<option value="${p.id}" ${p.id === x.responsable_id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
+      <label>Detalles</label><textarea name="descripcion" maxlength="2000" rows="4" placeholder="Qué se hace, canciones, indicaciones para el equipo…">${esc(x.descripcion || '')}</textarea>
+      <div class="fila" style="margin-top:12px"><button type="button" class="btn" data-cerrar>Cancelar</button><button class="btn prim" type="submit">${b ? 'Guardar' : 'Agregar bloque'}</button></div>
+      ${b ? '<button type="button" class="btn peligro blk" data-borrar style="margin-top:18px">Eliminar bloque</button>' : ''}
+    </form>`);
+  const form = $('#fBlq', body);
+  form.querySelector('[data-borrar]')?.addEventListener('click', async () => {
+    if (!confirm(`¿Eliminar el bloque "${b.titulo}" y sus comentarios?`)) return;
+    const { error } = await sb.from('actividad_bloques').delete().eq('id', b.id);
+    if (error) return fallo(error, 'Bloque');
+    cerrarModal(); toast('Bloque eliminado'); alGuardar();
+  });
+  form.onsubmit = async e => {
+    e.preventDefault();
+    await ocupado(form.querySelector('[type=submit]'), async () => {
+      const datos = { titulo: form.titulo.value.trim(), hora: form.hora.value.trim() || null,
+        responsable_id: form.responsable_id.value || null, descripcion: form.descripcion.value.trim() || null };
+      const { error } = b ? await sb.from('actividad_bloques').update(datos).eq('id', b.id)
+        : await sb.from('actividad_bloques').insert({ ...datos, actividad_id: a.id, orden });
+      if (error) return fallo(error, 'Bloque');
+      cerrarModal(); toast(b ? 'Bloque guardado' : 'Bloque agregado'); alGuardar();
+    });
+  };
+}
+
 async function vistaEquipo(ctx) {
   cargando('Equipo');
   await cargarPerfiles();

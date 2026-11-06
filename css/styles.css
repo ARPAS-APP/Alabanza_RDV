@@ -1085,3 +1085,46 @@ body.mod-disc .m-osc { display: none !important; }
 .guia-c summary small { opacity: .7; }
 .guia-c[open] summary { margin-bottom: 10px; }
 .nov-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 10px; background: var(--peligro); color: #fff; font-size: 12px; font-weight: 700; }
+
+/* ---------- pestañas: 6 en el menú ---------- */
+.nav a > span:not(.ico) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 380px) { .nav a { font-size: 10px; } .nav a .ico { font-size: 19px; } }
+
+/* ---------- medleys ---------- */
+.medley-info b { display: block; margin-bottom: 4px; }
+.medley-info ol { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 4px; }
+.medley-info li a { color: var(--texto); font-weight: 600; }
+.medley-info li small { display: block; color: var(--texto-3); }
+.med-parte { padding: 12px; }
+.med-fila { display: flex; align-items: center; gap: 6px; }
+.med-fila select { flex: 1; min-width: 0; margin: 0; }
+.med-fila .btn-ico:disabled { opacity: .3; }
+.med-secs { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.med-secs .check { margin-top: 6px; }
+.med-prev { max-height: 46vh; overflow: auto; }
+
+/* ---------- actividades ---------- */
+.act-link { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--texto); }
+.act-link .info { flex: 1; min-width: 0; }
+.bloque-top { display: flex; align-items: center; gap: 8px; }
+.bloque-top h3 { margin: 0; font-size: 17px; flex: 1; min-width: 0; }
+.bloque-acc { display: flex; gap: 2px; }
+.bloque-acc .btn-ico:disabled { opacity: .3; }
+.bloque-resp { margin: 6px 0 0; color: var(--texto-2); font-size: 14px; }
+.bloque-desc { white-space: pre-line; margin: 8px 0 0; }
+.card.bloque-desc { margin: 0 0 12px; }
+.bloque-coms { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--borde); display: grid; gap: 10px; }
+.bcom { display: flex; gap: 8px; align-items: flex-start; }
+.bcom .avatar.sm { width: 28px; height: 28px; font-size: 11px; flex: none; }
+.bcom-c { flex: 1; min-width: 0; }
+.bcom-c small { color: var(--texto-3); }
+.bcom-c p { margin: 2px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.bcom-form { display: flex; gap: 8px; align-items: center; }
+.bcom-form input { flex: 1; min-width: 0; margin: 0; }
+.bcom-form .btn { flex: none; margin: 0; }
+.lista button.item { width: 100%; text-align: left; font: inherit; }
+
+/* ---------- programa público: bloques ---------- */
+.pg-blq { margin: 8px 0 4px; }
+.pg-blq-i { padding: 4px 0 4px 10px; border-left: 2px solid var(--borde); margin: 2px 0; }
+.pg-blq-i small { display: block; color: var(--texto-3); white-space: pre-line; }

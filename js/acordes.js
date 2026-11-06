@@ -307,3 +307,67 @@ export function aCorchetes(texto) {
   }
   return out.join('\n');
 }
+
+// ---------------------------------------------------------------------
+// Medleys
+// ---------------------------------------------------------------------
+/**
+ * Divide la letra en partes según sus títulos (Coro, Estrofa 1, [Puente]…).
+ * Devuelve [{ nombre, texto }]. Lo que va antes del primer título queda como "Inicio";
+ * una letra sin títulos es una sola parte "Toda la canción".
+ */
+export function seccionesDe(texto) {
+  const partes = [];
+  let actual = null, hayTitulos = false;
+  for (const linea of normalizarLetra(texto).split('\n')) {
+    const sec = etiquetaSeccion(linea);
+    if (sec !== null) { hayTitulos = true; actual = { nombre: sec, lineas: [] }; partes.push(actual); continue; }
+    if (!actual) { if (!linea.trim()) continue; actual = { nombre: 'Inicio', lineas: [] }; partes.push(actual); }
+    actual.lineas.push(linea);
+  }
+  if (!hayTitulos && partes.length === 1) partes[0].nombre = 'Toda la canción';
+  return partes
+    .map(p => { while (p.lineas.length && !p.lineas[p.lineas.length - 1].trim()) p.lineas.pop(); return { nombre: p.nombre, texto: p.lineas.join('\n') }; })
+    .filter(p => p.texto.trim());
+}
+
+/** Transpone todos los acordes de un texto ([G]letra o líneas de acordes), sin tocar títulos ni letra. */
+export function transponerTexto(texto, semis, bemoles = false) {
+  if (!semis) return String(texto || '');
+  return String(texto || '').split('\n').map(l => {
+    if (etiquetaSeccion(l) !== null) return l;
+    if (esLineaDeAcordes(l)) return transponerLineaDeAcordes(l, semis, bemoles, false);
+    return l.replace(/\[([^\]]+)\]/g, (m, ch) => (esAcorde(ch.trim()) ? `[${transponerAcorde(ch.trim(), semis, bemoles)}]` : m));
+  }).join('\n');
+}
+
+/**
+ * Arma la letra de un medley.
+ * @param partes [{ cancion_id, secciones: [índices], tono }]   (secciones vacío = toda la canción)
+ * @param canciones Map id -> { titulo, tono_original, letra }
+ * Cada parte queda en su propio tono; entre partes con distinto tono se marca el cambio.
+ */
+export function componerMedley(partes, canciones) {
+  const out = [];
+  let tonoAnterior = null;
+  for (const p of partes) {
+    const c = canciones.get(p.cancion_id);
+    if (!c) continue;
+    const secs = seccionesDe(c.letra || '');
+    const elegidas = p.secciones?.length ? p.secciones.map(i => secs[i]).filter(Boolean) : secs;
+    if (!elegidas.length) continue;
+    const tono = parseTono(p.tono) ? p.tono : c.tono_original;
+    const semis = parseTono(c.tono_original) && parseTono(tono) ? distancia(c.tono_original, tono) : 0;
+    const bem = parseTono(tono) ? usaBemoles(tono) : false;
+    if (tonoAnterior && parseTono(tono) && tono !== tonoAnterior) out.push(`{c: Cambio de tono → ${tono}}`);
+    if (parseTono(tono)) tonoAnterior = tono;
+    for (const s of elegidas) {
+      const unica = s.nombre === 'Toda la canción';
+      out.push(`{c: ${unica ? c.titulo : `${s.nombre} · ${c.titulo}`}}`);
+      out.push(transponerTexto(s.texto, semis, bem));
+      out.push('');
+    }
+  }
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out.join('\n');
+}

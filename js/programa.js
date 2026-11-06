@@ -14,6 +14,7 @@ const ORDEN = { rapida: 0, lenta: 1, '': 2 };
 const pad = n => String(n).padStart(2, '0');
 const claveMes = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 let mes = new URLSearchParams(location.search).get('mes') || claveMes(new Date());
+let bloquesDe = new Map();   // setlist_id -> [{ titulo, bloques: [{ titulo, hora, descripcion }] }]
 const letras = new Map();
 
 async function rpc(fn, args) {
@@ -73,6 +74,8 @@ function htmlDia(d, ahora, proximoId) {
     <h2>${esc(t.emoji || '📅')} ${esc(d.titulo || t.nombre)} ${d.id === proximoId ? '<span class="tag ok">Próximo</span>' : ''}</h2>
     <div class="cuando">${esc(fmtCuando(d.fecha))} · ${esc(fmtHora(d.fecha))}${d.lugar ? ' · 📍 ' + esc(d.lugar) : ''}</div>
     ${dir.length || voz.length ? `<div class="pg-voces">🎤 ${dir.length ? `<b>👑 Dirige:</b> ${dir.join(', ')}` : ''}${dir.length && voz.length ? ' · ' : ''}${voz.length ? `<b>Voces:</b> ${voz.join(', ')}` : ''}</div>` : ''}
+    ${(bloquesDe.get(d.id) || []).map(a => `<div class="pg-blq"><div class="pg-sub">📋 ${esc(a.titulo)}</div>${(a.bloques || []).map(b =>
+      `<div class="pg-blq-i">${b.hora ? `<b>${esc(b.hora)}</b> · ` : ''}${esc(b.titulo)}${b.descripcion ? `<small>${esc(b.descripcion)}</small>` : ''}</div>`).join('')}</div>`).join('')}
     ${cans.length ? cans.map((c, k) => `${conRitmo && (k === 0 || cans[k - 1].ritmo !== c.ritmo) ? `<div class="pg-sub">${RITMOS[c.ritmo]}</div>` : ''}
       <div class="pg-can">
         <div class="pg-can-top">
@@ -101,11 +104,14 @@ async function cargar() {
     </div>
     <div id="dias"><div class="pg-vacio">Cargando…</div></div>`;
   let dias;
+  const pBloques = rpc('bloques_publicos', { p_token: token, p_desde: desde.toISOString(), p_hasta: hasta.toISOString() }).catch(() => []);   // si aún no existe, se ignora
   try { dias = await rpc('programa_publico', { p_token: token, p_desde: desde.toISOString(), p_hasta: hasta.toISOString() }); }
   catch (e) {
     $('#dias').innerHTML = `<div class="pg-vacio">🔒 ${/no válido|desactivado/i.test(e.message) ? 'Este link ya no es válido. Pide uno nuevo a un administrador.' : 'No se pudo cargar el programa. Revisa tu conexión.'}</div>`;
     return;
   }
+  bloquesDe = new Map();
+  for (const a of (await pBloques) || []) { if (!bloquesDe.has(a.setlist_id)) bloquesDe.set(a.setlist_id, []); bloquesDe.get(a.setlist_id).push(a); }
   const ahora = new Date(Date.now() - 3 * 3600e3);   // un día sigue como "próximo" hasta 3 h después de empezar
   const proximo = dias.find(d => new Date(d.fecha) >= ahora);
   $('#dias').innerHTML = dias.length ? dias.map(d => htmlDia(d, ahora, proximo?.id)).join('') : '<div class="pg-vacio">📅 No hay días programados este mes.</div>';

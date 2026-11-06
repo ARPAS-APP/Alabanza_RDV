@@ -14,6 +14,37 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-06-actividades',
+    fecha: '2026-11-06',
+    modulo: 'alabanza',
+    titulo: 'Actividades por bloques',
+    resumen: 'Nueva pestaña Actividades: cada actividad se divide en bloques (Bienvenida, Alabanza, Ofrenda…) y cada bloque tiene sus comentarios.',
+    pasos: [
+      { t: 'Abre la pestaña Actividades', d: 'Está en el menú de abajo, junto a Agenda.' },
+      { t: 'Entra a una actividad', d: 'Verás sus bloques en orden, con hora, responsable y detalles.' },
+      { t: 'Comenta en un bloque', d: 'Escribe abajo de cada bloque. Si la actividad es de un día, comentan quienes sirven ese día.' },
+      { t: 'Si eres admin', d: 'Toca + para crear una actividad, ligarla a un día de la agenda y agregar bloques. Puedes subirlos o bajarlos para ordenarlos.' },
+    ],
+    ir: '#/actividades',
+    irTxt: 'Ver actividades',
+  },
+  {
+    id: '2026-11-06-medleys',
+    fecha: '2026-11-06',
+    modulo: 'alabanza',
+    para: ['admin'],
+    titulo: 'Medleys sin duplicar canciones',
+    resumen: 'Une partes de 2 o más canciones del repertorio en un medley, cada parte en su tono, sin volver a escribirlas.',
+    pasos: [
+      { t: 'Ve a Canciones y toca +', d: 'Elige "Medley o mashup".' },
+      { t: 'Elige las canciones', d: 'Agrega 2 o más y ordénalas con las flechas.' },
+      { t: 'Marca solo lo que se canta', d: 'Por ejemplo, el coro de una y el puente de otra. Sin marcar, va la canción completa.' },
+      { t: 'Ajusta el tono de cada parte', d: 'Mira la vista previa y guarda. El medley se agrega a un día como cualquier canción.' },
+    ],
+    ir: '#/canciones',
+    irTxt: 'Crear un medley',
+  },
+  {
     id: '2026-11-06-numeros-discipulado',
     fecha: '2026-11-06',
     modulo: 'discipulado',
