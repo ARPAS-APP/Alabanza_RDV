@@ -1217,3 +1217,10 @@ body.mod-disc .m-osc { display: none !important; }
 .guia-it { padding: 9px 0; border-top: 1px solid var(--linea, rgba(0,0,0,.1)); }
 .guia-it dt { font-weight: 700; font-size: 15px; }
 .guia-it dd { margin: 2px 0 0; font-size: 14px; opacity: .85; line-height: 1.45; }
+
+/* Menú de abajo fijo de verdad: sin rebote al llegar al final ni saltos mientras se hace scroll.
+   (El desenfoque detrás del menú hacía que el iPhone lo redibujara tarde y "se subiera".) */
+html, body { overscroll-behavior-y: none; }
+body { min-height: 100svh; }
+.nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); transform: translate3d(0, 0, 0); will-change: transform; }
+.nav-set { transform: translate3d(0, 0, 0); }
