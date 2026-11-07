@@ -583,7 +583,7 @@ function vistaProximamente(registro = false) {
   <div class="auth" style="text-align:center">
     ${logoArpas()}
     <h1>Discipulado · Próximamente</h1>
-    <p class="lema">Estamos preparando Discipulado con mucho cariño. Está <b>pendiente de la autorización del pastor</b> y muy pronto estará disponible para todos. Te avisaremos cuando abra. 🌱</p>
+    <p class="lema">Estamos preparando Discipulado, orando por él y viendo cómo mejorarlo. Está <b>pendiente de la autorización del pastor</b> y muy pronto estará disponible para todos. Te avisaremos cuando abra. 🌱</p>
     ${registro ? `<button class="btn blk" id="bYaCuenta">Ya tengo cuenta: entrar</button>`
       : `<button class="btn blk" id="bSalir">Cerrar sesión</button>`}
   </div>`;
