@@ -3,10 +3,10 @@
 // - Imágenes y partituras de Supabase Storage: caché primero (no cambian), red si no están.
 // - Datos de Supabase (REST): no se tocan; la app guarda su propia copia (IndexedDB).
 // IMPORTANTE: este archivo va en la RAÍZ del repo (junto a index.html) para que funcionen las notificaciones.
-const CACHE = 'alabanza-v49';
+const CACHE = 'alabanza-v50';
 const ARCHIVOS = 'alabanza-archivos';
 const SHELL = [
-  './', 'index.html', 'css/styles.css', 'js/app.js', 'js/acordes.js', 'js/cifrado.js', 'js/config.js', 'js/discipulado.js', 'js/novedades.js', 'js/cuentas.js', 'js/biblia.js', 'js/audio-cifrado.js', 'js/audio-ref.js', 'js/estirar-worker.js',
+  './', 'index.html', 'css/styles.css', 'js/app.js', 'js/acordes.js', 'js/cifrado.js', 'js/config.js', 'js/discipulado.js', 'js/novedades.js', 'js/cuentas.js', 'js/guia.js', 'js/biblia.js', 'js/audio-cifrado.js', 'js/audio-ref.js', 'js/estirar-worker.js',
   'programa.html', 'js/programa.js', 'manifest.webmanifest', 'manifest-arpas.webmanifest', 'icons/logo.png', 'icons/icon-192.png', 'icons/arpas-mark.svg', 'icons/arpas-mark-reverse.svg', 'icons/arpas-logo.svg', 'icons/arpas-logo-reverse.svg', 'icons/arpas-icon-192.png',
 ];
 

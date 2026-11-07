@@ -14,6 +14,21 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-07-guia-app',
+    fecha: '2026-11-07',
+    modulo: 'discipulado',
+    titulo: 'Guía de la app, botón por botón',
+    resumen: 'En Mi perfil ahora tienes una guía con lo que hace cada pantalla y cada botón de Discipulado, según tu rol.',
+    pasos: [
+      { t: 'Abre Mi perfil', d: 'Toca tus iniciales arriba a la derecha.' },
+      { t: 'Toca "Guía de la app"', d: 'Verás las pantallas: Inicio, Devocional, Muro, Retos, Mentorías, Biblia y más.' },
+      { t: 'Abre una pantalla', d: 'Cada botón aparece con su explicación. Con "Ir a…" vas directo a esa pantalla.' },
+      { t: 'Busca', d: 'Escribe una palabra arriba (por ejemplo "racha" o "anónima") y te muestra solo lo que coincide.' },
+    ],
+    ir: '#/guia',
+    irTxt: 'Abrir la guía',
+  },
+  {
     id: '2026-11-07-varias-cuentas',
     fecha: '2026-11-07',
     modulo: 'todos',

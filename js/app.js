@@ -10,6 +10,7 @@ import { crearReproductor, desbloquearAudio } from './audio-ref.js';
 import { crearDiscipulado } from './discipulado.js';
 import { NOVEDADES } from './novedades.js';
 import { crearCuentas } from './cuentas.js';
+import { GUIA } from './guia.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const cuentas = crearCuentas(sb);
@@ -238,6 +239,46 @@ function guiaNovedades(lista, i) {
   const ir = $('#nIr', body);
   if (ir) ir.onclick = () => { novMarcar(lista.map(x => x.id)); cerrarModal(); location.hash = n.ir; };
 }
+// ---------- Guía de la app (wiki de botones; el contenido está en guia.js) ----------
+const ROL_TXT = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Mentor que administra' };
+function guiaMia() {
+  const r = discRol();
+  const roles = r === 'pastor' ? ['discipulo', 'mentor', 'pastor'] : r === 'mentor' ? ['discipulo', 'mentor'] : ['discipulo'];
+  const ve = x => !x.para || x.para.some(p => roles.includes(p));
+  return GUIA.filter(sec => (sec.modulo === 'todos' || (sec.modulo === 'discipulado' && r) || (sec.modulo === 'alabanza' && tieneAlabanza())) && ve(sec))
+    .map(sec => ({ ...sec, items: sec.items.filter(ve) }))
+    // "Empieza aquí": cada rol ve solo sus pasos (no los de discípulo repetidos)
+    .map(sec => { if (sec.id !== 'empieza') return sec; const mios = r === 'pastor' ? ['mentor', 'pastor'] : [r || 'discipulo'];
+      return { ...sec, items: sec.items.filter(i => (i.para || ['discipulo']).some(p => mios.includes(p))) }; })
+    .filter(sec => sec.items.length);
+}
+function vistaGuia() {
+  const secs = guiaMia(), r = discRol();
+  const norm = t => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  app.innerHTML = encabezado('Guía de la app', { atras: '#/perfil' }) + `
+    <p class="ayuda" style="margin-top:0">Qué hace cada pantalla y cada botón${r ? `. Ves la guía de <b>${esc(ROL_TXT[r] || '')}</b>` : ''}.</p>
+    <label for="gBuscar" class="sr">Buscar en la guía</label>
+    <input id="gBuscar" type="search" placeholder="Buscar: racha, anónima, calendario…" autocomplete="off" style="margin-bottom:12px">
+    <div id="gLista">${secs.map((sec, i) => `<details class="card guia-sec" data-sec="${esc(sec.id)}" ${i === 0 ? 'open' : ''}>
+      <summary><span class="guia-ico" aria-hidden="true">${sec.ico}</span><span class="guia-st"><b>${esc(sec.titulo)}</b><small>${esc(sec.intro || '')}</small></span></summary>
+      <dl class="guia-dl">${sec.items.map(it => `<div class="guia-it" data-txt="${esc(norm(it.b + ' ' + it.d + ' ' + sec.titulo))}"><dt>${esc(it.b)}</dt><dd>${esc(it.d)}</dd></div>`).join('')}</dl>
+      ${sec.ir ? `<a class="btn sm" href="${esc(sec.ir)}">Ir a ${esc(sec.titulo)} ›</a>` : ''}
+    </details>`).join('')}</div>
+    <p class="ayuda" id="gVacio" hidden style="text-align:center">No encontramos esa palabra en la guía.</p>
+    <p class="ayuda" style="text-align:center">¿Algo no está claro? Pregúntale a tu mentor o escribe en el muro.</p>`;
+  $('#gBuscar').oninput = e => {
+    const q = norm(e.target.value.trim());
+    let algo = false;
+    app.querySelectorAll('.guia-sec').forEach(sec => {
+      let n = 0;
+      sec.querySelectorAll('.guia-it').forEach(it => { const ok = !q || it.dataset.txt.includes(q); it.hidden = !ok; if (ok) n++; });
+      sec.hidden = !n; if (q && n) sec.open = true;
+      if (n) algo = true;
+    });
+    $('#gVacio').hidden = algo;
+  };
+}
+
 function vistaNovedades() {
   const lista = novedadesMias();
   const fecha = f => new Date(f + 'T12:00:00').toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -517,9 +558,10 @@ const RUTAS = {
   equipo: vistaEquipo,
   perfil: vistaPerfil,
   novedades: vistaNovedades,
+  guia: vistaGuia,
   d: ctx => disc.vista(ctx),
 };
-const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', actividad: 'actividades', perfil: 'equipo', novedades: 'equipo' };
+const TAB_DE = { cancion: 'canciones', ensayos: 'agenda', ensayo: 'agenda', dia: 'agenda', plan: 'agenda', actividad: 'actividades', perfil: 'equipo', novedades: 'equipo', guia: 'equipo' };
 
 window.addEventListener('hashchange', () => st.perfil?.estado === 'aprobado' && rutear());
 
@@ -527,7 +569,7 @@ function rutear() {
   const [ruta, qs = ''] = location.hash.replace(/^#\/?/, '').split('?');
   const [nombre, id] = ruta.split('/');
   // Cada ruta pertenece a un módulo; "perfil" se queda en el módulo actual
-  const propio = nombre === 'perfil' || nombre === 'novedades';
+  const propio = nombre === 'perfil' || nombre === 'novedades' || nombre === 'guia';
   const modulo = propio ? (st.modulo === 'discipulado' && discRol() ? 'discipulado' : (tieneAlabanza() ? 'alabanza' : 'discipulado'))
     : nombre === 'd' ? 'discipulado' : 'alabanza';
   if (modulo === 'discipulado' && !discRol()) { location.replace('#/muro'); return; }
@@ -4406,6 +4448,7 @@ function vistaPerfil() {
       ${ala ? `<label class="check"><input type="checkbox" id="chkLatino" ${ajustes.latino ? 'checked' : ''}> Mostrar acordes en cifrado latino (Do, Re, Mi…)</label>` : ''}
     </div>
     <a class="btn blk" href="#/novedades" style="margin-top:0;margin-bottom:12px">✨ Novedades y guías${(() => { const v = novVistas(); const n = novedadesMias().filter(x => !v.has(x.id)).length; return n ? ` <span class="nov-badge">${n}</span>` : ''; })()}</a>
+    ${guiaMia().some(s => s.modulo !== 'todos') ? `<a class="btn blk" href="#/guia" style="margin-top:0;margin-bottom:12px">📖 Guía de la app: qué hace cada botón</a>` : ''}
     ${htmlCuentasPerfil()}
     ${ala ? `<div class="card" id="cardTonos"></div>
     <div id="cardNotif"></div>

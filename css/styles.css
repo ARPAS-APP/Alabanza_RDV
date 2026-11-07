@@ -1205,3 +1205,15 @@ body.mod-disc .m-osc { display: none !important; }
 .cuentas-card { display: grid; gap: 8px; }
 .cuenta-fila-w { display: flex; gap: 6px; align-items: stretch; }
 .cuenta-quitar { flex-shrink: 0; width: 44px; border: 1px solid var(--linea, rgba(0,0,0,.12)); border-radius: 14px; background: transparent; color: inherit; font-size: 16px; cursor: pointer; }
+
+/* Guía de la app */
+.guia-sec summary { list-style: none; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; }
+.guia-sec summary::-webkit-details-marker { display: none; }
+.guia-ico { font-size: 22px; line-height: 1.2; }
+.guia-st { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.guia-st small { opacity: .75; }
+.guia-sec[open] summary { margin-bottom: 10px; }
+.guia-dl { margin: 0 0 12px; display: grid; gap: 0; }
+.guia-it { padding: 9px 0; border-top: 1px solid var(--linea, rgba(0,0,0,.1)); }
+.guia-it dt { font-weight: 700; font-size: 15px; }
+.guia-it dd { margin: 2px 0 0; font-size: 14px; opacity: .85; line-height: 1.45; }

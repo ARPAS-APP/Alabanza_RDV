@@ -5,6 +5,8 @@
 ## Regla al publicar cambios
 Cada vez que se agrega o cambia algo que las personas ven, se agrega **una entrada al inicio de `js/novedades.js`** con su guía corta (título, resumen, 3–5 pasos, `modulo`, `para` según el rol y, si aplica, `ir`). Al abrir la app, a cada persona le aparece una sola vez lo que le corresponde; después lo repasa en Mi perfil → "Novedades y guías" (`#/novedades`). Lo visto se guarda en el celular (`localStorage`, clave `arpas.novedades`) y solo se muestran sin pedirlo las de los últimos 90 días. Si se agrega un archivo JS nuevo, sumarlo a `SHELL` en `sw.js` y subir la versión de `CACHE`.
 
+**Guía de la app (wiki):** `js/guia.js` describe cada pantalla y botón por módulo y rol (Mi perfil → "Guía de la app", `#/guia`, con buscador). Si se agrega, quita o renombra un botón o una pantalla, actualizar también `js/guia.js` en el mismo cambio.
+
 ## Qué es
 App web instalable (PWA, funciona en iPhone y Android) para el **Ministerio de Alabanza de Roca de Vida Panamá** (~30 integrantes: cantores, coros, batería, piano, guitarras, bajo).
 Costo: **$0** (GitHub Pages + plan gratis de Supabase).
