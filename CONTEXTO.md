@@ -7,6 +7,8 @@ Cada vez que se agrega o cambia algo que las personas ven, se agrega **una entra
 
 **Guía de la app (wiki):** `js/guia.js` describe cada pantalla y botón por módulo y rol (Mi perfil → "Guía de la app", `#/guia`, con buscador). Si se agrega, quita o renombra un botón o una pantalla, actualizar también `js/guia.js` en el mismo cambio.
 
+**Discipulado en prueba:** `DISC_SOLO_PRUEBA = true` en `js/config.js`. Solo entran quienes tienen rol "Mentor (administra)" y sus discípulas directas (su mentor tiene rol pastor). Los demás ven "Discipulado · Próximamente" (pendiente de autorización del pastor), y el link general de registro también; el link de invitación de un mentor sí registra. Para abrirlo a todos: poner `false`.
+
 ## Qué es
 App web instalable (PWA, funciona en iPhone y Android) para el **Ministerio de Alabanza de Roca de Vida Panamá** (~30 integrantes: cantores, coros, batería, piano, guitarras, bajo).
 Costo: **$0** (GitHub Pages + plan gratis de Supabase).

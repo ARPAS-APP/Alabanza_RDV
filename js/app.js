@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_KEY, APP_NOMBRE, INSTRUMENTOS, NOTAS_TABS, REACCIONES, ROLES, ROLES_CANTO, ICON_INSTR, VAPID_PUBLIC_KEY } from './config.js';
+import { SUPABASE_URL, SUPABASE_KEY, APP_NOMBRE, INSTRUMENTOS, NOTAS_TABS, REACCIONES, ROLES, ROLES_CANTO, ICON_INSTR, VAPID_PUBLIC_KEY, DISC_SOLO_PRUEBA } from './config.js';
 import {
   TONOS_MAYORES, TONOS_MENORES, TODOS_LOS_TONOS, parseTono, usaBemoles, distancia,
   transponerTono, renderLetra, primerAcorde, cifrado, esAcorde, acordesDelTono, aCorchetes, transponerAcorde,
@@ -79,7 +79,7 @@ const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const esAdmin = () => st.perfil?.rol === 'admin';
 const tieneAlabanza = () => !st.hayModulos || !!st.mods.alabanza;
-const discRol = () => (st.hayModulos && st.mods.discipulado) || null;
+const discRol = () => (st.hayModulos && !st.discBloqueado && st.mods.discipulado) || null;
 const nombreDe = id => st.perfiles.get(id)?.nombre || 'Alguien';
 const iniciales = n => (n || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
 const normalizar = s => String(s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -365,7 +365,7 @@ async function arrancar(session) {
   await cargarModulos();
   // Mentores y administradores: su cuenta siempre pide contraseña al volver a ella en un teléfono compartido
   if (claveObligatoria()) cuentas.proteger(st.uid, true, true);
-  if (!tieneAlabanza() && !discRol()) { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(true); }
+  if (!tieneAlabanza() && !discRol()) { $('#nav').hidden = true; $('#navD').hidden = true; return st.discBloqueado ? vistaProximamente() : vistaPendiente(true); }
   if (tieneAlabanza()) {
     await Promise.all([cargarPerfiles(), cargarTipos()]);
     iniciarGlobal();
@@ -390,6 +390,12 @@ async function cargarModulos() {
     st.modsDe.set(m.perfil_id, o);
   }
   st.mods = st.modsDe.get(st.uid) || {};
+  // Discipulado en prueba: entra quien administra y sus discípulas directas; el resto ve "Próximamente"
+  st.discBloqueado = false;
+  if (DISC_SOLO_PRUEBA && st.mods.discipulado && st.mods.discipulado !== 'pastor') {
+    const { data: dd } = await conCache('mimentor', sb.from('disc_discipulos').select('mentor_id').eq('discipulo_id', st.uid).maybeSingle());
+    st.discBloqueado = !(dd?.mentor_id && st.modsDe.get(dd.mentor_id)?.discipulado === 'pastor');
+  }
 }
 
 async function cargarPerfiles() {
@@ -503,6 +509,8 @@ async function cerrarSesion(btn) {
 }
 
 function vistaAuth(modo = 'login', aviso = null, pre = null) {
+  // Discipulado en prueba: el link general de registro muestra "Próximamente" (el link de un mentor sí registra)
+  if (DISC_SOLO_PRUEBA && pre === 'discipulado' && modo === 'registro' && !new URLSearchParams(location.hash.split('?')[1] || '').get('mentor')) return vistaProximamente(true);
   document.body.classList.toggle('mod-disc', pre === 'discipulado');
   aplicarMarca(pre === 'discipulado');
   const titulos = { login: 'Entrar', registro: 'Crear cuenta', olvido: 'Recuperar contraseña' };
@@ -564,6 +572,24 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
     } catch (err) { msg(err.message || 'Error de conexión'); }
     finally { btn.disabled = false; }
   };
+}
+
+// Discipulado todavía cerrado (en prueba)
+function vistaProximamente(registro = false) {
+  document.body.classList.add('mod-disc');
+  aplicarMarca(true);
+  $('#nav').hidden = true; $('#navD').hidden = true;
+  app.innerHTML = `
+  <div class="auth" style="text-align:center">
+    ${logoArpas()}
+    <h1>Discipulado · Próximamente</h1>
+    <p class="lema">Estamos preparando Discipulado con mucho cariño. Está <b>pendiente de la autorización del pastor</b> y muy pronto estará disponible para todos. Te avisaremos cuando abra. 🌱</p>
+    ${registro ? `<button class="btn blk" id="bYaCuenta">Ya tengo cuenta: entrar</button>`
+      : `<button class="btn blk" id="bSalir">Cerrar sesión</button>`}
+  </div>`;
+  app.onclick = null;
+  if (registro) $('#bYaCuenta').onclick = () => vistaAuth('login', null, 'discipulado');
+  else $('#bSalir').onclick = e => cerrarSesion(e.currentTarget);
 }
 
 function vistaPendiente(sinModulo = false) {

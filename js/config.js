@@ -10,6 +10,10 @@ export const VAPID_PUBLIC_KEY = 'BOHwraN8Z-aNWAiJPGb6MIKVaJu_lZ5TwvKDrZLXlp44rhw
 
 export const APP_NOMBRE = 'Arpas';
 
+// Discipulado en prueba: solo entran quien administra Discipulado y sus discípulas directas.
+// El resto ve "Próximamente" (pendiente de autorización del pastor). Para abrirlo a todos: false.
+export const DISC_SOLO_PRUEBA = true;
+
 export const INSTRUMENTOS = {
   voz: 'Voz',
   piano: 'Piano / Teclado',
