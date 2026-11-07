@@ -14,38 +14,6 @@
 // =====================================================================
 export const NOVEDADES = [
   {
-    id: '2026-11-06-seguimiento-mentores',
-    fecha: '2026-11-06',
-    modulo: 'discipulado',
-    para: ['pastor'],
-    titulo: 'Seguimiento de mentores',
-    resumen: 'Ahora ves la labor de cada mentor: sus mentorías, sus notas de seguimiento y qué discípulos llevan tiempo sin mentoría.',
-    pasos: [
-      { t: 'Abre "Seguimiento de mentores"', d: 'Está en el Inicio de Discipulado, junto a Gestionar.' },
-      { t: 'Mira el semáforo', d: 'Al día: todos sus discípulos tuvieron mentoría en 30 días. Atención: alguno no. Sin actividad: ni mentorías ni notas en 30 días.' },
-      { t: 'Abre un mentor', d: 'Ves cuántas mentorías hizo, las próximas, sus notas del mes y la lista de sus discípulos.' },
-      { t: 'Entra a un discípulo', d: 'Ves su historial de mentorías y las notas de seguimiento del mentor. Son de solo lectura.' },
-    ],
-    ir: '#/d/seguimiento',
-    irTxt: 'Ver seguimiento',
-  },
-  {
-    id: '2026-11-06-notas-visibles-pastor',
-    fecha: '2026-11-06',
-    modulo: 'discipulado',
-    para: ['mentor'],
-    titulo: 'Tus notas y mentorías ahora las ve el pastor',
-    resumen: 'Para acompañar mejor a cada mentor, quien administra Discipulado puede leer tus notas de seguimiento y ver tus mentorías.',
-    pasos: [
-      { t: 'Qué ve', d: 'Tus notas sobre cada discípulo y el historial de mentorías. No puede editarlas ni borrarlas.' },
-      { t: 'Qué no ve nadie más', d: 'Tus discípulos y los demás mentores siguen sin ver tus notas.' },
-      { t: 'Escribe pensando en eso', d: 'Si alguien te cuenta algo en confianza que no deba compartirse, no lo pongas en la nota.' },
-      { t: 'Ficha del discípulo', d: 'Ahora también trae la lista de mentorías: realizadas, próximas y canceladas.' },
-    ],
-    ir: '#/d/discipulos',
-    irTxt: 'Ir a Mis discípulos',
-  },
-  {
     id: '2026-11-06-actividades-programa',
     fecha: '2026-11-06',
     modulo: 'alabanza',

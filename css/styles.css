@@ -1194,20 +1194,3 @@ body.mod-disc .m-osc { display: none !important; }
 .act-horas b { font-size: clamp(14px, 4.2vw, 18px); white-space: nowrap; }
 .act-horas small { white-space: nowrap; }
 @media (max-width: 420px) { .act-horas small { letter-spacing: .06em; font-size: 9.5px; } .act-horas div { padding: 8px 4px; } }
-
-/* Discipulado: mentorías en la ficha y seguimiento de mentores */
-.d-ment-est { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; background: rgba(0,0,0,.06); }
-.d-ment-est.si { background: #E8F3EC; color: #1F7A4D; }
-.d-ment-est.no { background: #FBEDEB; color: #B3362C; }
-.d-ment-est.prox { background: #E7EDEE; color: #3F5C61; }
-.d-seg summary { list-style: none; cursor: pointer; display: grid; gap: 8px; }
-.d-seg summary::-webkit-details-marker { display: none; }
-.d-seg-h { display: flex; align-items: center; gap: 10px; }
-.d-seg-h .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.d-seg-n { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; opacity: .85; }
-.d-seg-n .rojo { color: #B3362C; opacity: 1; }
-.d-sem { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-.d-sem.verde { background: #E8F3EC; color: #1F7A4D; }
-.d-sem.amar { background: #FBF1DA; color: #8A5A00; }
-.d-sem.rojo { background: #FBEDEB; color: #B3362C; }
-.d-sem.gris { background: rgba(0,0,0,.06); }
