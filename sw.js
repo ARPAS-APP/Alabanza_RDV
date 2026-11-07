@@ -3,7 +3,7 @@
 // - Imágenes y partituras de Supabase Storage: caché primero (no cambian), red si no están.
 // - Datos de Supabase (REST): no se tocan; la app guarda su propia copia (IndexedDB).
 // IMPORTANTE: este archivo va en la RAÍZ del repo (junto a index.html) para que funcionen las notificaciones.
-const CACHE = 'alabanza-v53';
+const CACHE = 'alabanza-v54';
 const ARCHIVOS = 'alabanza-archivos';
 const SHELL = [
   './', 'index.html', 'css/styles.css', 'js/app.js', 'js/acordes.js', 'js/cifrado.js', 'js/config.js', 'js/discipulado.js', 'js/novedades.js', 'js/cuentas.js', 'js/guia.js', 'js/biblia.js', 'js/audio-cifrado.js', 'js/audio-ref.js', 'js/estirar-worker.js',
@@ -39,6 +39,8 @@ self.addEventListener('fetch', e => {
   }
 
   const propio = url.origin === location.origin;
+  // Videos: los maneja el navegador (pide por partes); no se guardan en la caché de la app
+  if (propio && url.pathname.includes('/videos/')) return;
   // Biblia: no cambia nunca, así que caché primero (queda disponible sin internet)
   if (propio && url.pathname.includes('/biblia/')) {
     e.respondWith(

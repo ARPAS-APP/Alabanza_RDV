@@ -10,7 +10,7 @@ import { crearReproductor, desbloquearAudio } from './audio-ref.js';
 import { crearDiscipulado } from './discipulado.js';
 import { NOVEDADES } from './novedades.js';
 import { crearCuentas } from './cuentas.js';
-import { GUIA } from './guia.js';
+import { GUIA, VIDEOS } from './guia.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const cuentas = crearCuentas(sb);
@@ -252,11 +252,19 @@ function guiaMia() {
       return { ...sec, items: sec.items.filter(i => (i.para || ['discipulo']).some(p => mios.includes(p))) }; })
     .filter(sec => sec.items.length);
 }
+function videosMios() {
+  const r = discRol();
+  const roles = r === 'pastor' ? ['discipulo', 'mentor', 'pastor'] : r === 'mentor' ? ['discipulo', 'mentor'] : ['discipulo'];
+  return VIDEOS.filter(v => (v.modulo !== 'discipulado' || r) && (!v.para || v.para.some(p => roles.includes(p))));
+}
 function vistaGuia() {
-  const secs = guiaMia(), r = discRol();
+  const secs = guiaMia(), r = discRol(), vids = videosMios();
   const norm = t => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   app.innerHTML = encabezado('Guía de la app', { atras: '#/perfil' }) + `
     <p class="ayuda" style="margin-top:0">Qué hace cada pantalla y cada botón${r ? `. Ves la guía de <b>${esc(ROL_TXT[r] || '')}</b>` : ''}.</p>
+    ${vids.length ? `<div class="guia-videos">${vids.map(v => `<figure class="card guia-video">
+      <video controls playsinline preload="none" poster="${esc(v.poster)}" src="${esc(v.src)}" aria-label="${esc(v.titulo)}"></video>
+      <figcaption><b>🎬 ${esc(v.titulo)}</b><small>${esc(v.dura)}</small></figcaption></figure>`).join('')}</div>` : ''}
     <label for="gBuscar" class="sr">Buscar en la guía</label>
     <input id="gBuscar" type="search" placeholder="Buscar: racha, anónima, calendario…" autocomplete="off" style="margin-bottom:12px">
     <div id="gLista">${secs.map((sec, i) => `<details class="card guia-sec" data-sec="${esc(sec.id)}" ${i === 0 ? 'open' : ''}>

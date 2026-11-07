@@ -5,6 +5,12 @@
 // Un mentor ve lo de discípulo y lo de mentor; quien administra ve todo.
 // Cuando cambie una pantalla o un botón, actualizar aquí también.
 // =====================================================================
+// Videos explicativos (Mi perfil → Guía de la app). para: quién lo ve.
+export const VIDEOS = [
+  { id: 'disc-mentores', modulo: 'discipulado', titulo: 'Cómo acompañar a tus discípulos', dura: '1:48', src: 'videos/discipulado-mentores.mp4', poster: 'videos/discipulado-mentores.jpg', para: ['mentor'] },
+  { id: 'disc-discipulos', modulo: 'discipulado', titulo: 'Cómo usar Discipulado', dura: '1:58', src: 'videos/discipulado-discipulos.mp4', poster: 'videos/discipulado-discipulos.jpg' },
+];
+
 export const GUIA = [
   {
     modulo: 'discipulado', id: 'empieza', ico: '🚀', titulo: 'Empieza aquí',

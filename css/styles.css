@@ -1235,3 +1235,10 @@ body { min-height: 100svh; }
 .d-serv.sin { color: var(--texto-3); }
 .d-servicio b { display: block; margin-top: 4px; }
 .d-bit .info b, .d-bit .info small { white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* Guía: videos verticales */
+.guia-videos { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; margin-bottom: 12px; }
+.guia-video { flex: 0 0 min(72%, 260px); margin: 0; padding: 8px; scroll-snap-align: start; display: grid; gap: 8px; }
+.guia-video video { width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; background: #2A2C22; object-fit: cover; }
+.guia-video figcaption { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 14px; }
+.guia-video figcaption small { opacity: .7; white-space: nowrap; }
