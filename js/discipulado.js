@@ -171,6 +171,7 @@ export function crearDiscipulado(api) {
       ${preguntas ? `<a class="item d-fila" href="#/d/muro" data-preguntas><span class="d-mini-ico">❓</span><div class="info"><b>${preguntas} ${preguntas === 1 ? 'pregunta' : 'preguntas'} sin responder</b><small>En el muro</small></div>›</a>` : ''}
       ${misDiscipulos(e).length || esMentorRol() ? `<a class="item d-fila" href="#/d/discipulos"><span class="d-mini-ico">🌱</span><div class="info"><b>Mis discípulos (${misDiscipulos(e).length})</b><small>${!misDiscipulos(e).length ? 'Invita a tus discípulos con tu link' : atencion ? `${atencion} ${atencion === 1 ? 'necesita' : 'necesitan'} atención` : 'Todos al día'}</small></div>›</a>` : ''}
       ${htmlNums}
+      ${esPastor() ? `<a class="item d-fila" href="#/d/seguimiento"><span class="d-mini-ico">📋</span><div class="info"><b>Seguimiento de mentores</b><small>Mentorías y notas de cada mentor</small></div>›</a>` : ''}
       ${esPastor() ? `<a class="item d-fila" href="#/d/gestion"><span class="d-mini-ico">🛠️</span><div class="info"><b>Gestionar Discipulado</b><small>Devocionales, retos y personas</small></div>›</a>` : ''}
       ${!miMentor(e) && !misDiscipulos(e).length && !esPastor() ? '<p class="ayuda" style="text-align:center">Todavía no tienes mentor asignado. Quien te invitó te lo asignará pronto.</p>' : ''}`;
   }
@@ -870,18 +871,23 @@ export function crearDiscipulado(api) {
     cargando(nombreDe(id), { atras: '#/d/discipulos' });
     const e = await estructura();
     const soyMentor = e.mentorDe.get(id) === st.uid;
-    const [res, resp, posts, notas, retos, niveles] = await Promise.all([
+    const suMentor = e.mentorDe.get(id);
+    const veNotas = soyMentor || esPastor();
+    const [res, resp, posts, notas, retos, niveles, ments] = await Promise.all([
       sb.rpc('disc_resumen', { p_todos: esPastor() && !soyMentor }),
       sb.from('disc_respuestas').select('id, texto, visibilidad, grupo_id, created_at, dev:disc_devocionales(titulo, fecha)').eq('autor_id', id).order('created_at', { ascending: false }).limit(10),
       sb.from('disc_posts').select('*').eq('autor_id', id).neq('visibilidad', 'comunidad').order('created_at', { ascending: false }).limit(10),
-      soyMentor ? sb.from('disc_notas').select('*').eq('discipulo_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+      veNotas ? sb.from('disc_notas').select('*').eq('discipulo_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
       sb.from('disc_retos_part').select('completado_at, reto:disc_retos(titulo, dias), marcas:disc_retos_marcas(fecha)').eq('perfil_id', id),
       sb.from('disc_niveles').select('*').order('n'),
+      sb.from('disc_mentorias').select('id, inicio, modalidad, tema, estado, discipulo_id, mentor_id')
+        .or(suMentor ? `discipulo_id.eq.${id},and(discipulo_id.is.null,mentor_id.eq.${suMentor})` : `discipulo_id.eq.${id}`)
+        .order('inicio', { ascending: false }).limit(12),
     ]);
     if (!ctx.vigente()) return;
     if (res.error) return falta(res.error);
     const r = (res.data || []).find(x => x.perfil_id === id) || { racha: 0, maxima: 0, nivel: 1, retos_hechos: 0 };
-    app.innerHTML = cab(nombreDe(id), { sub: soyMentor ? 'Tu discípulo' : 'Mentor: ' + nombreDe(e.mentorDe.get(id)), atras: '#/d/discipulos' }) + `
+    app.innerHTML = cab(nombreDe(id), { sub: soyMentor ? 'Tu discípulo' : 'Mentor: ' + nombreDe(e.mentorDe.get(id)), atras: esPastor() && !soyMentor ? '#/d/seguimiento' : '#/d/discipulos' }) + `
       <div class="d-stats"><div><b>🔥 ${r.racha}</b><small>Racha (récord ${r.maxima})</small></div><div><b>${r.retos_hechos}</b><small>Retos hechos</small></div><div><b>${r.nivel}</b><small>Nivel</small></div></div>
       <div class="card"><b>Último devocional:</b> ${esc(haceDias(r.ultimo))}<br><b>Próxima mentoría:</b> ${r.proxima ? esc(diaTxt(r.proxima) + ' · ' + horaTxt(r.proxima)) : 'sin agendar'}
         ${soyMentor ? '<button class="btn prim blk" data-acc="agendar">＋ Agendar mentoría</button>' : ''}</div>
@@ -889,10 +895,15 @@ export function crearDiscipulado(api) {
         <select id="selNivel">${(niveles.data || []).map(n => `<option value="${n.n}" ${n.n === r.nivel ? 'selected' : ''}>${n.n}. ${esc(n.nombre)} · ${esc(n.descripcion || '')}</option>`).join('')}</select>
         <p class="ayuda">Súbelo de nivel cuando veas que está listo.</p></div>
       ${soyMentor ? `<div class="d-hero d-notas">
-        <span class="d-eti">🔒 Mis notas · solo yo las veo</span>
+        <span class="d-eti">🔒 Mis notas · las ves tú y quien administra Discipulado</span>
         ${(notas.data || []).map(n => `<div class="d-nota"><span>${esc1(n.texto)}</span><small>${esc(haceCuanto(n.created_at))} <button class="btn-link" data-acc="borrarNota" data-n="${n.id}">Borrar</button></small></div>`).join('') || '<p class="d-nota-vacia">Aún no tienes notas sobre esta persona.</p>'}
         <form id="fNota"><label for="tNota" class="sr">Nueva nota</label><textarea id="tNota" maxlength="4000" placeholder="Escribe una nota nueva…"></textarea><button class="btn sm d-cal-btn">Guardar nota</button></form>
+      </div>` : esPastor() ? `<div class="d-hero d-notas">
+        <span class="d-eti">📋 Seguimiento del mentor · solo lectura</span>
+        ${(notas.data || []).map(n => `<div class="d-nota"><span>${esc1(n.texto)}</span><small>${esc(nombreDe(n.mentor_id).split(' ')[0])} · ${esc(haceCuanto(n.created_at))}</small></div>`).join('') || '<p class="d-nota-vacia">Su mentor todavía no ha escrito notas de seguimiento.</p>'}
       </div>` : ''}
+      <div class="seccion-t">Mentorías</div>
+      ${htmlMentoriasFicha(ments.data || [])}
       <div class="seccion-t">Devocionales que compartió contigo</div>
       ${(resp.data || []).length ? (resp.data || []).map(x => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${esc(x.dev?.titulo || '')}</b><small>${esc(haceCuanto(x.created_at))}</small></div><span class="tag">${visDe(x).ico} ${esc(visDe(x).txt)}</span></div><div class="d-post-t">${esc1(x.texto)}</div></div>`).join('') : '<p class="ayuda">Todavía no ha compartido respuestas contigo.</p>'}
       <div class="seccion-t">Peticiones y mensajes para ti o el grupo</div>
@@ -927,6 +938,48 @@ export function crearDiscipulado(api) {
         toast('Nota guardada'); api.rutear();
       });
     };
+  }
+
+  function htmlMentoriasFicha(lista) {
+    if (!lista.length) return '<p class="ayuda">Todavía no hay mentorías registradas.</p>';
+    const ahora = Date.now();
+    const est = m => m.estado === 'cancelada' ? ['Cancelada', 'no']
+      : m.estado === 'propuesta' ? ['Propuesta', 'pend']
+      : new Date(m.inicio).getTime() <= ahora ? ['Realizada', 'si'] : ['Próxima', 'prox'];
+    const MOD = { presencial: '🤝 Presencial', videollamada: '💻 Videollamada', llamada: '📞 Llamada' };
+    return `<div class="lista">${lista.map(m => { const [t, c] = est(m); return `<div class="item" style="cursor:default">
+      <div class="info"><b>${esc(diaTxt(m.inicio))} · ${esc(horaTxt(m.inicio))}</b><small>${esc(MOD[m.modalidad] || '')}${m.discipulo_id ? '' : ' · con el grupo'}${m.tema ? ' · ' + esc(m.tema) : ''}</small></div>
+      <span class="d-ment-est ${c}">${t}</span></div>`; }).join('')}</div>`;
+  }
+
+  // ===================================================================
+  // SEGUIMIENTO DE MENTORES (pastor): labor de cada mentor
+  // ===================================================================
+  async function vistaSeguimiento(ctx) {
+    if (!esPastor()) { location.replace('#/d/inicio'); return; }
+    cargando('Seguimiento de mentores', { atras: '#/d/inicio' });
+    const [e, { data, error }] = await Promise.all([estructura(true), sb.rpc('disc_seguimiento_mentores')]);
+    if (!ctx.vigente()) return;
+    if (error) return falta(error);
+    const dias = t => t ? Math.floor((Date.now() - new Date(t).getTime()) / 864e5) : null;
+    const filas = (data || []).map(m => {
+      const d = dias(m.ultima_mentoria), dn = dias(m.ultima_nota);
+      const estado = !m.discipulos ? ['Sin discípulos', 'gris']
+        : !m.mentorias_30 && !m.notas_30 ? ['Sin actividad', 'rojo']
+        : m.sin_mentoria_30 ? ['Atención', 'amar'] : ['Al día', 'verde'];
+      return { ...m, d, dn, estado };
+    }).sort((a, b) => ({ rojo: 0, amar: 1, verde: 2, gris: 3 }[a.estado[1]] - { rojo: 0, amar: 1, verde: 2, gris: 3 }[b.estado[1]]) || nombreDe(a.mentor_id).localeCompare(nombreDe(b.mentor_id)));
+    const cuenta = c => filas.filter(f => f.estado[1] === c).length;
+    const discDe = mid => [...e.mentorDe.entries()].filter(([, m]) => m === mid).map(([d]) => d);
+    app.innerHTML = cab('Seguimiento de mentores', { sub: 'Últimos 30 días', atras: '#/d/inicio' }) + `
+      <div class="d-stats"><div><b>${cuenta('verde')}</b><small>Al día</small></div><div><b>${cuenta('amar')}</b><small>Atención</small></div><div><b>${cuenta('rojo')}</b><small>Sin actividad</small></div></div>
+      <p class="ayuda" style="margin-top:-4px">Al día: todos sus discípulos tuvieron mentoría en 30 días. Atención: alguno no. Sin actividad: ni mentorías ni notas en 30 días.</p>
+      ${filas.length ? filas.map(f => `<details class="card d-seg">
+        <summary><div class="d-seg-h"><span class="avatar sm">${esc(iniciales(nombreDe(f.mentor_id)))}</span><div class="info"><b>${esc(nombreDe(f.mentor_id))}</b><small>${f.discipulos} ${f.discipulos === 1 ? 'discípulo' : 'discípulos'}${f.invitados_pendientes ? ` · ${f.invitados_pendientes} por aprobar` : ''}</small></div><span class="d-sem ${f.estado[1]}">${f.estado[0]}</span></div>
+          <div class="d-seg-n"><span><b>${f.mentorias_30}</b> mentorías</span><span><b>${f.proximas}</b> próximas</span><span><b>${f.notas_30}</b> notas</span>${f.sin_mentoria_30 ? `<span class="rojo"><b>${f.sin_mentoria_30}</b> sin mentoría</span>` : ''}</div></summary>
+        <p class="ayuda" style="margin:8px 0">Última mentoría: ${f.d === null ? 'ninguna' : f.d === 0 ? 'hoy' : `hace ${f.d} ${f.d === 1 ? 'día' : 'días'}`} · Última nota: ${f.dn === null ? 'ninguna' : f.dn === 0 ? 'hoy' : `hace ${f.dn} ${f.dn === 1 ? 'día' : 'días'}`}${f.canceladas_30 ? ` · ${f.canceladas_30} cancelada${f.canceladas_30 === 1 ? '' : 's'}` : ''}</p>
+        <div class="lista">${discDe(f.mentor_id).map(d => `<a class="item" href="#/d/discipulo/${d}"><span class="avatar sm">${esc(iniciales(nombreDe(d)))}</span><div class="info"><b>${esc(nombreDe(d))}</b><small>Ver mentorías y notas</small></div>›</a>`).join('') || '<p class="ayuda">Todavía no tiene discípulos.</p>'}</div>
+      </details>`).join('') : vacio('🌱', 'Todavía no hay mentores.')}`;
   }
 
   // ===================================================================
@@ -1188,9 +1241,9 @@ export function crearDiscipulado(api) {
   // ===================================================================
   const VISTAS = {
     inicio: vistaInicio, devocional: vistaDevocional, muro: vistaMuro, retos: vistaRetos, mentorias: vistaMentorias,
-    discipulos: vistaDiscipulos, discipulo: vistaDiscipulo, gestion: vistaGestion, personas: vistaPersonas, biblia: vistaBiblia,
+    discipulos: vistaDiscipulos, discipulo: vistaDiscipulo, seguimiento: vistaSeguimiento, gestion: vistaGestion, personas: vistaPersonas, biblia: vistaBiblia,
   };
-  const TAB = { discipulos: 'inicio', discipulo: 'inicio', gestion: 'inicio', personas: 'inicio', biblia: 'devocional' };
+  const TAB = { discipulos: 'inicio', discipulo: 'inicio', seguimiento: 'inicio', gestion: 'inicio', personas: 'inicio', biblia: 'devocional' };
   return {
     tabDe: sub => TAB[sub] || (VISTAS[sub] ? sub : 'inicio'),
     vista(ctx) { (VISTAS[ctx.partes[0]] || vistaInicio)(ctx); },
