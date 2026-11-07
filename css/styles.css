@@ -1194,3 +1194,14 @@ body.mod-disc .m-osc { display: none !important; }
 .act-horas b { font-size: clamp(14px, 4.2vw, 18px); white-space: nowrap; }
 .act-horas small { white-space: nowrap; }
 @media (max-width: 420px) { .act-horas small { letter-spacing: .06em; font-size: 9.5px; } .act-horas div { padding: 8px 4px; } }
+
+/* Varias cuentas en el mismo teléfono */
+.cuentas-auth { display: grid; gap: 8px; margin: 4px 0 14px; text-align: left; }
+.cuentas-t { font-size: 13px; font-weight: 600; opacity: .75; }
+.cuenta-fila { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 8px 12px; border: 1px solid var(--linea, rgba(0,0,0,.12)); border-radius: 14px; background: var(--tarjeta, transparent); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cuenta-fila .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cuenta-fila .info small { opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuenta-fila.actual { cursor: default; border-style: dashed; }
+.cuentas-card { display: grid; gap: 8px; }
+.cuenta-fila-w { display: flex; gap: 6px; align-items: stretch; }
+.cuenta-quitar { flex-shrink: 0; width: 44px; border: 1px solid var(--linea, rgba(0,0,0,.12)); border-radius: 14px; background: transparent; color: inherit; font-size: 16px; cursor: pointer; }

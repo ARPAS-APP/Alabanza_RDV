@@ -14,6 +14,22 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-07-varias-cuentas',
+    fecha: '2026-11-07',
+    modulo: 'todos',
+    titulo: 'Varias cuentas en el mismo teléfono',
+    resumen: 'Si en tu familia comparten celular, por ejemplo mamá e hija, pueden tener las dos cuentas y cambiar con un toque, sin escribir la contraseña.',
+    pasos: [
+      { t: 'Abre Mi perfil', d: 'Busca la tarjeta "Cuentas en este teléfono".' },
+      { t: 'Agrega la otra cuenta', d: 'Toca "＋ Agregar otra cuenta" y entra con el correo y la contraseña de la otra persona. Se hace una sola vez.' },
+      { t: 'Cambia cuando quieras', d: 'En Mi perfil, toca la otra cuenta y la app se abre como esa persona.' },
+      { t: 'Avisos para las dos', d: 'Si el celular tiene las notificaciones activadas, llegan los avisos de ambas cuentas.' },
+      { t: 'Para quitarla', d: 'Toca ✕ junto a la cuenta. "Cerrar sesión" cierra solo la cuenta que estás usando.' },
+    ],
+    ir: '#/perfil',
+    irTxt: 'Ir a Mi perfil',
+  },
+  {
     id: '2026-11-06-actividades-programa',
     fecha: '2026-11-06',
     modulo: 'alabanza',

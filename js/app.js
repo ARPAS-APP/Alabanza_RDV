@@ -9,8 +9,10 @@ import { generarCifrado, renderCifrado, erroresCifrado, AYUDA_CIFRADO, leerIreal
 import { crearReproductor, desbloquearAudio } from './audio-ref.js';
 import { crearDiscipulado } from './discipulado.js';
 import { NOVEDADES } from './novedades.js';
+import { crearCuentas } from './cuentas.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const cuentas = crearCuentas(sb);
 
 // =====================================================================
 // Estado y utilidades
@@ -277,6 +279,8 @@ app.addEventListener('click', e => {
 const baseUrl = () => location.origin + location.pathname;
 
 sb.auth.onAuthStateChange((evento, session) => {
+  // Guardar el último token de esta cuenta (para cambiar de cuenta sin contraseña)
+  if (session) cuentas.recordar(session);
   // No llamar a Supabase dentro del callback (puede bloquear): diferir.
   setTimeout(() => {
     if (evento === 'PASSWORD_RECOVERY') return modalNuevaClave();
@@ -306,6 +310,8 @@ async function arrancar(session) {
   }
   if (error) { app.innerHTML = `<div class="auth"><div class="msg err">No se pudo cargar tu perfil: ${esc(error.message)}</div><button class="btn blk" onclick="location.reload()">Reintentar</button></div>`; return; }
   st.perfil = perfil;
+  cuentas.nombrar(st.uid, perfil?.nombre);
+  try { sessionStorage.removeItem('arpas.agregando'); } catch { /* nada */ }
   if (!perfil || perfil.estado !== 'aprobado') { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(); }
   await cargarModulos();
   if (!tieneAlabanza() && !discRol()) { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(true); }
@@ -318,6 +324,7 @@ async function arrancar(session) {
   if (!location.hash || location.hash === '#' || location.hash === '#/' || /^#\/registro/.test(location.hash)) location.replace(inicio);
   else rutear();
   setTimeout(mostrarNovedades, 1200);
+  setTimeout(pushParaCuentaNueva, 2500);
 }
 
 /** Accesos por módulo. Si aún no se ejecutó 015_modulos_discipulado.sql, todo sigue como antes (solo Alabanza). */
@@ -349,6 +356,51 @@ async function cargarPerfiles() {
 // =====================================================================
 // Login / registro
 // =====================================================================
+// ---------- Varias cuentas en el mismo teléfono ----------
+function htmlCuentasGuardadas() {
+  const l = cuentas.lista();
+  if (!l.length) return '';
+  const agregando = (() => { try { return sessionStorage.getItem('arpas.agregando'); } catch { return null; } })();
+  return `<div class="cuentas-auth">
+    <span class="cuentas-t">${agregando ? 'Agregando otra cuenta. ¿O vuelves a…?' : 'Cuentas en este teléfono'}</span>
+    ${l.map(c => `<button type="button" class="cuenta-fila" data-cuenta="${esc(c.id)}"><span class="avatar sm">${esc(iniciales(c.nombre || c.email))}</span><span class="info"><b>${esc(c.nombre || c.email)}</b><small>${esc(c.email || '')}</small></span><span aria-hidden="true">›</span></button>`).join('')}
+    <span class="cuentas-t" style="margin-top:6px">${agregando ? 'Entra con la otra cuenta:' : 'O entra con otra cuenta:'}</span>
+  </div>`;
+}
+async function cambiarCuenta(id) {
+  if (id === st.uid) return;
+  const previa = st.uid;
+  try { sessionStorage.removeItem('arpas.agregando'); } catch { /* nada */ }
+  try {
+    await idb.limpiar();
+    await cuentas.entrar(id);
+    location.hash = '';
+    location.reload();
+  } catch (e) {
+    // Si no se pudo, volver a la cuenta en la que estaba
+    if (previa) { try { await cuentas.entrar(previa); } catch { /* queda en la entrada */ } }
+    if (e.vencida) { if (!previa) vistaAuth('login', { txt: e.message, err: true, email: e.email }); else toast(e.message); }
+    else toast('No se pudo cambiar de cuenta. Revisa tu conexión.');
+  }
+}
+async function agregarCuenta() {
+  try { sessionStorage.setItem('arpas.agregando', st.uid || '1'); } catch { /* nada */ }
+  await idb.limpiar();
+  cuentas.soltarLocal();
+  location.hash = '';
+  location.reload();
+}
+function htmlCuentasPerfil() {
+  const otras = cuentas.lista().filter(c => c.id !== st.uid);
+  return `<div class="card cuentas-card">
+    <b>👨‍👩‍👧 Cuentas en este teléfono</b>
+    <p class="ayuda" style="margin:4px 0 8px">Para la familia que comparte celular: cambia de cuenta con un toque, sin escribir la contraseña.</p>
+    <div class="cuenta-fila actual"><span class="avatar sm">${esc(iniciales(st.perfil?.nombre))}</span><span class="info"><b>${esc(st.perfil?.nombre || '')}</b><small>Usando ahora</small></span></div>
+    ${otras.map(c => `<div class="cuenta-fila-w"><button type="button" class="cuenta-fila" data-cuenta="${esc(c.id)}"><span class="avatar sm">${esc(iniciales(c.nombre || c.email))}</span><span class="info"><b>${esc(c.nombre || c.email)}</b><small>Toca para cambiar</small></span><span aria-hidden="true">⇄</span></button><button type="button" class="cuenta-quitar" data-quitar="${esc(c.id)}" aria-label="Quitar a ${esc(c.nombre || c.email)} de este teléfono">✕</button></div>`).join('')}
+    <button type="button" class="btn blk" id="bAgregarCuenta" style="margin-bottom:0">＋ Agregar otra cuenta</button>
+  </div>`;
+}
+
 function vistaAuth(modo = 'login', aviso = null, pre = null) {
   document.body.classList.toggle('mod-disc', pre === 'discipulado');
   aplicarMarca(pre === 'discipulado');
@@ -358,6 +410,7 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
     ${logoArpas()}
     <h1>${pre === 'discipulado' ? 'Discipulado' : 'Ministerio de alabanza'}</h1>
     <p class="lema">${pre === 'discipulado' ? 'Seguimiento, oración y crecimiento' : 'Roca de Vida Panamá'}</p>
+    ${modo === 'login' ? htmlCuentasGuardadas() : ''}
     ${modo !== 'olvido' ? `<div class="tabs-auth">
       <button type="button" data-modo="login" class="${modo === 'login' ? 'activo' : ''}">Entrar</button>
       <button type="button" data-modo="registro" class="${modo === 'registro' ? 'activo' : ''}">Crear cuenta</button>
@@ -374,7 +427,12 @@ function vistaAuth(modo = 'login', aviso = null, pre = null) {
     ${modo === 'login' ? `<button class="link" data-modo="olvido">¿Olvidaste tu contraseña?</button>` : ''}
     ${modo === 'olvido' ? `<button class="link" data-modo="login">‹ Volver a entrar</button>` : ''}
   </div>`;
-  app.onclick = e => { const b = e.target.closest('[data-modo]'); if (b) vistaAuth(b.dataset.modo, null, pre); };
+  app.onclick = e => {
+    const c = e.target.closest('[data-cuenta]');
+    if (c) return cambiarCuenta(c.dataset.cuenta);
+    const b = e.target.closest('[data-modo]'); if (b) vistaAuth(b.dataset.modo, null, pre);
+  };
+  if (aviso?.email && $('#fAuth [name=email]')) $('#fAuth [name=email]').value = aviso.email;
   $('#fAuth').onsubmit = async e => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
@@ -4348,6 +4406,7 @@ function vistaPerfil() {
       ${ala ? `<label class="check"><input type="checkbox" id="chkLatino" ${ajustes.latino ? 'checked' : ''}> Mostrar acordes en cifrado latino (Do, Re, Mi…)</label>` : ''}
     </div>
     <a class="btn blk" href="#/novedades" style="margin-top:0;margin-bottom:12px">✨ Novedades y guías${(() => { const v = novVistas(); const n = novedadesMias().filter(x => !v.has(x.id)).length; return n ? ` <span class="nov-badge">${n}</span>` : ''; })()}</a>
+    ${htmlCuentasPerfil()}
     ${ala ? `<div class="card" id="cardTonos"></div>
     <div id="cardNotif"></div>
     <div id="cardIndisp"></div>` : `<div id="cardNotif"></div><button class="btn blk" id="bCal" style="margin-top:0;margin-bottom:12px">📅 Mis mentorías en el calendario del celular</button>`}
@@ -4385,7 +4444,19 @@ function vistaPerfil() {
   };
   if (ala) pintarMisTonos();
   $('#bClave').onclick = modalNuevaClave;
-  $('#bSalir').onclick = async () => { await idb.limpiar(); await sb.auth.signOut(); location.hash = ''; };
+  $('#bSalir').onclick = async () => {
+    const otras = cuentas.lista().filter(c => c.id !== st.uid).length;
+    if (otras && !confirm('Se cerrará la sesión de esta cuenta y se quitará de este teléfono. Las demás cuentas siguen guardadas.')) return;
+    cuentas.olvidar(st.uid);
+    await quitarPushMio();
+    await idb.limpiar(); await sb.auth.signOut(); location.hash = '';
+  };
+  $('#bAgregarCuenta').onclick = () => agregarCuenta();
+  $('.cuentas-card').onclick = e => {
+    const q = e.target.closest('[data-quitar]');
+    if (q) { const c = cuentas.lista().find(x => x.id === q.dataset.quitar); if (confirm(`¿Quitar a ${c?.nombre || c?.email || 'esta cuenta'} de este teléfono? Para volver a usarla habrá que entrar con su contraseña.`)) { cuentas.olvidar(q.dataset.quitar); rutear(); } return; }
+    const b = e.target.closest('[data-cuenta]'); if (b) cambiarCuenta(b.dataset.cuenta);
+  };
   if (ala) {
     $('#bOffline').onclick = e => descargarSinConexion(e.currentTarget);
     pintarIndisp();
@@ -4741,7 +4812,28 @@ async function desactivarPush() {
   const sub = await miSuscripcion();
   if (!sub) return;
   await sb.from('push_suscripciones').delete().eq('endpoint', sub.endpoint);
-  await sub.unsubscribe();
+  // Si otras cuentas usan este celular, no apagar el permiso del teléfono: solo quitar esta cuenta
+  if (!cuentas.lista().some(c => c.id !== st.uid)) await sub.unsubscribe();
+}
+// ¿Este celular recibe avisos de la cuenta actual?
+async function pushMio() {
+  const sub = await miSuscripcion();
+  if (!sub) return false;
+  const { data } = await sb.from('push_suscripciones').select('id').eq('endpoint', sub.endpoint).limit(1);
+  return !!data?.length;
+}
+async function quitarPushMio() {
+  try { const sub = await miSuscripcion(); if (sub) await sb.from('push_suscripciones').delete().eq('endpoint', sub.endpoint); } catch { /* nada */ }
+}
+// Al cambiar a otra cuenta en un celular que ya tiene avisos activados, se activan también para ella
+async function pushParaCuentaNueva() {
+  try {
+    if (!pushSoportado() || Notification.permission !== 'granted' || cuentas.lista().length < 2) return;
+    const sub = await miSuscripcion();
+    if (!sub || await pushMio()) return;
+    const j = sub.toJSON();
+    await sb.from('push_suscripciones').insert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, dispositivo: nombreDispositivo() });
+  } catch { /* si falta el script 022, sigue igual */ }
 }
 
 async function pintarNotif() {
@@ -4753,7 +4845,7 @@ async function pintarNotif() {
   let estado;
   if (!pushSoportado()) estado = ios && !standalone ? 'ios' : 'no';
   else if (Notification.permission === 'denied') estado = 'bloq';
-  else estado = (await miSuscripcion().catch(() => null)) ? 'on' : 'off';
+  else estado = (await pushMio().catch(() => false)) ? 'on' : 'off';
   if (!$('#cardNotif')) return;
   const [TIPOS, DEF] = tiposPush();
   const prefs = { ...DEF, ...(st.perfil.notif || {}) };
