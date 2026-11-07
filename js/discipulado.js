@@ -22,6 +22,9 @@ const TIPOS_POST = {
   anuncio:    { ico: '📣', txt: 'Anuncio' },
   logro:      { ico: '🏅', txt: 'Logro' },
 };
+// Ministerios para la ficha de servicio
+const MINISTERIOS = ['Alabanza', 'Audiovisuales', 'Hospitalidad', 'Células', 'Talmid', 'Ministerio de Mujeres', 'Ministerio de Hombres',
+  'Academia Roca de Vida', 'Roca Kids', 'Bendecido para Bendecir', 'Otro'];
 const ROLES_D = { discipulo: 'Discípulo', mentor: 'Mentor', pastor: 'Mentor (administra)' };
 const ROLES_D_PL = { discipulo: 'Discípulos', mentor: 'Mentores', pastor: 'Mentores que administran' };
 const MODALIDAD = { presencial: '📍 Presencial', videollamada: '💻 Videollamada', llamada: '📞 Llamada' };
@@ -118,6 +121,7 @@ export function crearDiscipulado(api) {
     ]);
     const nums = esPastor() ? (await sb.rpc('disc_estadisticas')).data : null;
     const preguntas = await preguntasSinResponder();
+    const ficha = await fichaPendiente();
     if (!ctx.vigente()) return;
     if (!ctx.vigente()) return;
     if (devs.error) return falta(devs.error);
@@ -146,6 +150,7 @@ export function crearDiscipulado(api) {
     app.onclick = ev => { if (ev.target.closest('[data-preguntas]')) filtroMuro = 'preguntas'; };
     app.innerHTML = cab(`Hola, ${nombre}`, { sub: fechaTxt(hoyF) }) + `
       ${invitados ? `<a class="card d-aviso" href="#/d/discipulos"><b>🌱 ${invitados} ${invitados === 1 ? 'persona quiere' : 'personas quieren'} ser tu discípulo</b><span>Se registraron con tu link. Apruébalas en Mis discípulos ›</span></a>` : ''}
+      ${ficha ? `<a class="card d-aviso d-ficha" href="#/d/servicio"><b>📝 ${ficha === 'pedida' ? 'Tu mentor te pide actualizar tu ficha de servicio' : 'Cuéntanos dónde sirves'}</b><span>En qué ministerio sirves y a cuántas personas discipulas. Toma 1 minuto ›</span></a>` : ''}
       ${pendientes ? `<a class="card d-aviso" href="#/d/personas"><b>🔑 ${pendientes} ${pendientes === 1 ? 'solicitud' : 'solicitudes'} de acceso</b><span>Revísalas cuando hayas conversado con cada persona ›</span></a>` : ''}
       <div class="d-hero">
         <div class="d-racha"><span class="d-fuego">🔥</span><div><b>${racha.actual} ${racha.actual === 1 ? 'día seguido' : 'días seguidos'}</b><small>Tu racha de devocionales${racha.maxima > racha.actual ? ` · récord ${racha.maxima}` : ''}</small></div></div>
@@ -174,6 +179,21 @@ export function crearDiscipulado(api) {
       ${esPastor() ? `<a class="item d-fila" href="#/d/gestion"><span class="d-mini-ico">🛠️</span><div class="info"><b>Gestionar Discipulado</b><small>Devocionales, retos y personas</small></div>›</a>` : ''}
       ${!miMentor(e) && !misDiscipulos(e).length && !esPastor() ? '<p class="ayuda" style="text-align:center">Todavía no tienes mentor asignado. Quien te invitó te lo asignará pronto.</p>' : ''}`;
   }
+
+  // ¿Hay que llenar o actualizar la ficha de servicio? 'nueva' | 'pedida' | null
+  async function fichaPendiente() {
+    const [{ data: f, error }, { data: enc }] = await Promise.all([
+      sb.from('disc_servicio').select('updated_at').eq('perfil_id', st.uid).maybeSingle(),
+      sb.from('disc_encuestas').select('created_at, mentor_id').neq('mentor_id', st.uid).order('created_at', { ascending: false }).limit(1),
+    ]);
+    if (error) return null;   // aún no se ejecutó 023
+    if (!f) return 'nueva';
+    const ult = enc?.[0];
+    return ult && new Date(ult.created_at) > new Date(f.updated_at) ? 'pedida' : null;
+  }
+  const textoServicio = f => !f ? 'Sin ficha de servicio'
+    : `${f.rol === 'ninguno' || !f.ministerios?.length ? 'Todavía no sirve' : (f.rol === 'lider' ? 'Líder en ' : 'Sirve en ') + f.ministerios.join(', ')} · discipula a ${f.discipulas}`;
+  const fechaHist = t => fechaTxt(fechaPa(new Date(t)), { day: 'numeric', month: 'short', year: 'numeric' });
 
   // Preguntas del muro que nadie (aparte de quien preguntó) ha respondido
   async function preguntasSinResponder() {
@@ -822,6 +842,14 @@ export function crearDiscipulado(api) {
     const { data, error } = await sb.rpc('disc_resumen', { p_todos: todos });
     if (!ctx.vigente()) return;
     if (error) return falta(error);
+    const ids = (data || []).map(r => r.perfil_id);
+    const [serv, enc] = await Promise.all([
+      ids.length ? sb.from('disc_servicio').select('*').in('perfil_id', ids) : Promise.resolve({ data: [] }),
+      sb.from('disc_encuestas').select('created_at').eq('mentor_id', st.uid).order('created_at', { ascending: false }).limit(1),
+    ]);
+    if (!ctx.vigente()) return;
+    const hayFicha = !serv.error && !enc.error;
+    const servDe = new Map((serv.data || []).map(f => [f.perfil_id, f]));
     const hoyF = fechaPa();
     const filas = (data || []).sort((a, b) => nombreDe(a.perfil_id).localeCompare(nombreDe(b.perfil_id)));
     const frios = filas.filter(r => !r.ultimo || r.ultimo < sumarDias(hoyF, -6));
@@ -831,16 +859,30 @@ export function crearDiscipulado(api) {
       ${esPastor() ? `<div class="segmentado" id="segTodos"><button data-t="0" class="${!todos ? 'activo' : ''}">Mis discípulos</button><button data-t="1" class="${todos ? 'activo' : ''}">Toda la iglesia</button></div>` : ''}
       ${esMentorRol() && !todos ? htmlInvitados() : ''}
       <div class="d-stats"><div><b>${filas.length}</b><small>Discípulos</small></div><div><b>${alDia}</b><small>Al día hoy</small></div><div><b>${semana}</b><small>Mentorías esta semana</small></div></div>
+      ${hayFicha ? (() => {
+        const fichas = filas.map(r => servDe.get(r.perfil_id)).filter(Boolean);
+        const sirven = fichas.filter(f => f.rol !== 'ninguno' && f.ministerios?.length).length;
+        const discipulan = fichas.reduce((t, f) => t + (f.discipulas || 0), 0);
+        const porMin = {};
+        fichas.forEach(f => (f.rol === 'ninguno' ? [] : f.ministerios || []).forEach(m => { porMin[m] = (porMin[m] || 0) + 1; }));
+        const ult = enc.data?.[0]?.created_at;
+        return `<div class="d-stats"><div><b>${sirven}/${filas.length}</b><small>Sirven en un ministerio</small></div><div><b>${discipulan}</b><small>Personas que ellos discipulan</small></div><div><b>${fichas.length}/${filas.length}</b><small>Fichas llenas</small></div></div>
+          ${Object.keys(porMin).length ? `<p class="ayuda" style="margin-top:-4px">${Object.entries(porMin).sort((a, b) => b[1] - a[1]).map(([m, c]) => `${esc(m)}: <b>${c}</b>`).join(' · ')}</p>` : ''}
+          <button class="btn blk" id="bPedirFicha" style="margin-top:0">📝 Pedir que actualicen su ficha de servicio</button>
+          ${ult ? `<p class="ayuda" style="margin-top:-6px;text-align:center">Último pedido: ${esc(haceCuanto(ult))}</p>` : ''}`;
+      })() : ''}
       ${frios.length ? `<div class="card d-alerta">⚠️ <span>${frios.map(r => `<b>${esc(nombreDe(r.perfil_id))}</b> ${r.ultimo ? 'no hace el devocional desde ' + esc(haceDias(r.ultimo)) : 'aún no ha hecho ningún devocional'}${r.proxima ? '' : ' y no tiene mentoría agendada'}`).join('. ')}.</span></div>` : ''}
       <div class="lista">${filas.length ? filas.map(r => `
         <a class="item" href="#/d/discipulo/${r.perfil_id}">${avatar(r.perfil_id)}
           <div class="info"><b>${esc(nombreDe(r.perfil_id))}</b><small>Último devocional: ${esc(haceDias(r.ultimo))}${todos ? ' · mentor: ' + esc(nombreDe(r.mentor_id)) : ''}</small>
-          <small>${r.proxima ? 'Próxima: ' + esc(diaTxt(r.proxima)) : 'Sin mentoría agendada'} · Nivel ${r.nivel}</small></div>
+          <small>${r.proxima ? 'Próxima: ' + esc(diaTxt(r.proxima)) : 'Sin mentoría agendada'} · Nivel ${r.nivel}</small>
+          ${hayFicha ? `<small class="d-serv ${servDe.get(r.perfil_id) ? '' : 'sin'}">📝 ${esc(textoServicio(servDe.get(r.perfil_id)))}</small>` : ''}</div>
           <span class="d-chip-racha ${r.racha ? '' : 'cero'}">🔥 ${r.racha}</span></a>`).join('') : vacio('🌱', todos ? 'Todavía no hay discípulos asignados.' : 'Todavía no tienes discípulos asignados.')}</div>
       ${esMentorRol() && !todos ? `<div class="seccion-t">Invitar discípulos</div>
       <div class="card"><p class="ayuda" style="margin-top:0">Después de conversar con alguien, mándale tu link. Al registrarse te aparece aquí arriba para que lo apruebes, y queda como tu discípulo.</p>
         <button class="btn blk" id="bInv" style="margin-top:0">📋 Copiar mi link de invitación</button></div>` : ''}`;
     $('#segTodos') && ($('#segTodos').onclick = ev => { const b = ev.target.closest('[data-t]'); if (b) { verTodos = b.dataset.t === '1'; api.rutear(); } });
+    $('#bPedirFicha') && ($('#bPedirFicha').onclick = ev => pedirFicha(todos, ev.currentTarget));
     $('#bInv') && ($('#bInv').onclick = async () => { try { await navigator.clipboard.writeText(linkMentor()); toast('Link copiado'); } catch { prompt('Copia tu link:', linkMentor()); } });
     app.onclick = ev => {
       const b = ev.target.closest('[data-aprob]');
@@ -870,13 +912,15 @@ export function crearDiscipulado(api) {
     cargando(nombreDe(id), { atras: '#/d/discipulos' });
     const e = await estructura();
     const soyMentor = e.mentorDe.get(id) === st.uid;
-    const [res, resp, posts, notas, retos, niveles] = await Promise.all([
+    const [res, resp, posts, notas, retos, niveles, sv, svh] = await Promise.all([
       sb.rpc('disc_resumen', { p_todos: esPastor() && !soyMentor }),
       sb.from('disc_respuestas').select('id, texto, visibilidad, grupo_id, created_at, dev:disc_devocionales(titulo, fecha)').eq('autor_id', id).order('created_at', { ascending: false }).limit(10),
       sb.from('disc_posts').select('*').eq('autor_id', id).neq('visibilidad', 'comunidad').order('created_at', { ascending: false }).limit(10),
       soyMentor ? sb.from('disc_notas').select('*').eq('discipulo_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
       sb.from('disc_retos_part').select('completado_at, reto:disc_retos(titulo, dias), marcas:disc_retos_marcas(fecha)').eq('perfil_id', id),
       sb.from('disc_niveles').select('*').order('n'),
+      sb.from('disc_servicio').select('*').eq('perfil_id', id).maybeSingle(),
+      sb.from('disc_servicio_hist').select('*').eq('perfil_id', id).order('created_at', { ascending: false }).limit(20),
     ]);
     if (!ctx.vigente()) return;
     if (res.error) return falta(res.error);
@@ -885,6 +929,9 @@ export function crearDiscipulado(api) {
       <div class="d-stats"><div><b>🔥 ${r.racha}</b><small>Racha (récord ${r.maxima})</small></div><div><b>${r.retos_hechos}</b><small>Retos hechos</small></div><div><b>${r.nivel}</b><small>Nivel</small></div></div>
       <div class="card"><b>Último devocional:</b> ${esc(haceDias(r.ultimo))}<br><b>Próxima mentoría:</b> ${r.proxima ? esc(diaTxt(r.proxima) + ' · ' + horaTxt(r.proxima)) : 'sin agendar'}
         ${soyMentor ? '<button class="btn prim blk" data-acc="agendar">＋ Agendar mentoría</button>' : ''}</div>
+      ${!sv.error ? `<div class="card d-servicio"><span class="d-eti">📝 Servicio en la iglesia</span>
+        ${sv.data ? `<b>${esc(textoServicio(sv.data))}</b>${sv.data.comentario ? `<p class="ayuda" style="margin:6px 0 0">“${esc(sv.data.comentario)}”</p>` : ''}<small class="ayuda">Actualizada ${esc(haceCuanto(sv.data.updated_at))}</small>` : '<p class="ayuda" style="margin:4px 0 0">Todavía no llena su ficha de servicio. Pídeselo desde Mis discípulos.</p>'}
+      </div>` : ''}
       <div class="card"><label for="selNivel" style="margin-top:0">Ruta de crecimiento</label>
         <select id="selNivel">${(niveles.data || []).map(n => `<option value="${n.n}" ${n.n === r.nivel ? 'selected' : ''}>${n.n}. ${esc(n.nombre)} · ${esc(n.descripcion || '')}</option>`).join('')}</select>
         <p class="ayuda">Súbelo de nivel cuando veas que está listo.</p></div>
@@ -897,6 +944,7 @@ export function crearDiscipulado(api) {
       ${(resp.data || []).length ? (resp.data || []).map(x => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${esc(x.dev?.titulo || '')}</b><small>${esc(haceCuanto(x.created_at))}</small></div><span class="tag">${visDe(x).ico} ${esc(visDe(x).txt)}</span></div><div class="d-post-t">${esc1(x.texto)}</div></div>`).join('') : '<p class="ayuda">Todavía no ha compartido respuestas contigo.</p>'}
       <div class="seccion-t">Peticiones y mensajes para ti o el grupo</div>
       ${(posts.data || []).length ? (posts.data || []).map(p => `<div class="card d-post"><div class="d-post-h"><div class="info"><b>${TIPOS_POST[p.tipo]?.ico || ''} ${esc(TIPOS_POST[p.tipo]?.txt || '')}</b><small>${esc(haceCuanto(p.created_at))}</small></div><span class="tag">${visDe(p).ico} ${esc(visDe(p).txt)}</span></div><div class="d-post-t">${esc1(p.texto)}</div>${htmlAdjuntos(p.adjuntos)}</div>`).join('') : '<p class="ayuda">Nada por ahora.</p>'}
+      ${(svh.data || []).length ? `<div class="seccion-t">Bitácora de servicio</div><div class="lista d-bit">${svh.data.map(h => `<div class="item" style="cursor:default"><div class="info"><b>${esc(textoServicio(h))}</b><small>${esc(fechaHist(h.created_at))}${h.comentario ? ' · ' + esc(h.comentario) : ''}</small></div></div>`).join('')}</div>` : ''}
       <div class="seccion-t">Retos</div>
       ${(retos.data || []).length ? `<div class="lista">${retos.data.filter(x => x.reto).map(x => `<div class="item" style="cursor:default"><span class="d-chk ${x.completado_at ? 'si' : ''}">${x.completado_at ? '✓' : ''}</span><div class="info"><b>${esc(x.reto.titulo)}</b><small>${x.marcas.length} de ${x.reto.dias} días</small></div></div>`).join('')}</div>` : '<p class="ayuda">No se ha unido a ningún reto.</p>'}`;
 
@@ -927,6 +975,65 @@ export function crearDiscipulado(api) {
         toast('Nota guardada'); api.rutear();
       });
     };
+  }
+
+  // ===================================================================
+  // FICHA DE SERVICIO (cada persona) y su bitácora
+  // ===================================================================
+  async function vistaServicio(ctx) {
+    cargando('Mi servicio', { atras: '#/d/inicio' });
+    const [{ data: f, error }, { data: hist }] = await Promise.all([
+      sb.from('disc_servicio').select('*').eq('perfil_id', st.uid).maybeSingle(),
+      sb.from('disc_servicio_hist').select('*').eq('perfil_id', st.uid).order('created_at', { ascending: false }).limit(20),
+    ]);
+    if (!ctx.vigente()) return;
+    if (error) {
+      app.innerHTML = cab('Mi servicio', { atras: '#/d/inicio' }) + `<div class="card"><p style="margin:0">Falta activar la ficha de servicio.</p><p class="ayuda">Quien administra debe ejecutar <b>supabase/023_disc_servicio.sql</b> en Supabase.</p></div>`;
+      return;
+    }
+    const sel = new Set(f?.ministerios || []);
+    let rol = f?.rol || 'servidor', n = f?.discipulas ?? 0;
+    app.innerHTML = cab('Mi servicio en la iglesia', { sub: f ? 'Actualizada ' + haceCuanto(f.updated_at) : 'Cuéntale a tu mentor dónde sirves', atras: '#/d/inicio' }) + `
+      <form id="fServ" class="card">
+        <label style="margin-top:0">¿En qué ministerios sirves?</label>
+        <p class="ayuda" style="margin-top:0">Marca todos los que apliquen.</p>
+        <div class="d-chips" id="sMin">${MINISTERIOS.map(m => `<button type="button" class="chip ${sel.has(m) ? 'activo' : ''}" aria-pressed="${sel.has(m)}" data-m="${esc(m)}">${esc(m)}</button>`).join('')}</div>
+        <label>¿Qué haces ahí?</label>
+        <div class="segmentado" id="sRol">${Object.entries({ servidor: 'Sirvo', lider: 'Soy líder', ninguno: 'Aún no sirvo' }).map(([k, v]) => `<button type="button" data-r="${k}" class="${rol === k ? 'activo' : ''}" aria-pressed="${rol === k}">${v}</button>`).join('')}</div>
+        <label>¿A cuántas personas discipulas tú?</label>
+        <div class="d-stepper"><button type="button" class="btn" data-n="-1" aria-label="Restar">−</button><b id="sN" aria-live="polite">${n}</b><button type="button" class="btn prim" data-n="1" aria-label="Sumar">+</button></div>
+        <p class="ayuda">Personas que acompañas tú, dentro o fuera de la app.</p>
+        <label for="sCom">¿Algo que tu mentor deba saber? (opcional)</label>
+        <textarea id="sCom" maxlength="1000" placeholder="Ej. Quiero empezar a servir en Hospitalidad">${esc(f?.comentario || '')}</textarea>
+        <p class="ayuda">Lo ven solo tú, tu mentor y quien administra Discipulado.</p>
+        <button class="btn prim blk" id="bGuardarServ">Guardar mi ficha</button>
+      </form>
+      ${(hist || []).length ? `<div class="seccion-t">Mi bitácora</div><div class="lista d-bit">${hist.map(h => `<div class="item" style="cursor:default"><div class="info"><b>${esc(textoServicio(h))}</b><small>${esc(fechaHist(h.created_at))}${h.comentario ? ' · ' + esc(h.comentario) : ''}</small></div></div>`).join('')}</div>` : ''}`;
+    $('#sMin').onclick = ev => { const b = ev.target.closest('[data-m]'); if (!b) return; const m = b.dataset.m; sel.has(m) ? sel.delete(m) : sel.add(m); b.classList.toggle('activo', sel.has(m)); b.setAttribute('aria-pressed', sel.has(m)); };
+    $('#sRol').onclick = ev => { const b = ev.target.closest('[data-r]'); if (!b) return; rol = b.dataset.r; $('#sRol').querySelectorAll('button').forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-pressed', x === b); }); };
+    app.querySelector('.d-stepper').onclick = ev => { const b = ev.target.closest('[data-n]'); if (!b) return; n = Math.max(0, Math.min(200, n + +b.dataset.n)); $('#sN').textContent = n; };
+    $('#fServ').onsubmit = ev => {
+      ev.preventDefault();
+      if (rol !== 'ninguno' && !sel.size) { toast('Marca al menos un ministerio, o elige "Aún no sirvo"', true); return; }
+      ocupado($('#bGuardarServ'), async () => {
+        const fila = { perfil_id: st.uid, ministerios: rol === 'ninguno' ? [] : [...sel], rol, discipulas: n, comentario: $('#sCom').value.trim() || null, updated_at: new Date().toISOString() };
+        const { error } = await sb.from('disc_servicio').upsert(fila, { onConflict: 'perfil_id' });
+        if (error) return fallo(error, 'Ficha de servicio');
+        toast('¡Gracias! Tu ficha quedó actualizada 📝');
+        location.hash = '#/d/inicio';
+      });
+    };
+  }
+  // Pedir a los discípulos que actualicen su ficha
+  async function pedirFicha(todos, btn) {
+    const quien = todos ? 'a todas las personas de Discipulado' : 'a tus discípulos';
+    if (!confirm(`¿Pedir ${quien} que actualicen su ficha de servicio? Les llegará un aviso.`)) return;
+    ocupado(btn, async () => {
+      const { error } = await sb.from('disc_encuestas').insert({ mentor_id: st.uid, para_todos: !!todos });
+      if (error) return fallo(error, 'Pedir ficha');
+      toast('Listo: se les pidió actualizar su ficha 📝');
+      api.rutear();
+    });
   }
 
   // ===================================================================
@@ -1188,9 +1295,9 @@ export function crearDiscipulado(api) {
   // ===================================================================
   const VISTAS = {
     inicio: vistaInicio, devocional: vistaDevocional, muro: vistaMuro, retos: vistaRetos, mentorias: vistaMentorias,
-    discipulos: vistaDiscipulos, discipulo: vistaDiscipulo, gestion: vistaGestion, personas: vistaPersonas, biblia: vistaBiblia,
+    discipulos: vistaDiscipulos, discipulo: vistaDiscipulo, servicio: vistaServicio, gestion: vistaGestion, personas: vistaPersonas, biblia: vistaBiblia,
   };
-  const TAB = { discipulos: 'inicio', discipulo: 'inicio', gestion: 'inicio', personas: 'inicio', biblia: 'devocional' };
+  const TAB = { discipulos: 'inicio', discipulo: 'inicio', servicio: 'inicio', gestion: 'inicio', personas: 'inicio', biblia: 'devocional' };
   return {
     tabDe: sub => TAB[sub] || (VISTAS[sub] ? sub : 'inicio'),
     vista(ctx) { (VISTAS[ctx.partes[0]] || vistaInicio)(ctx); },

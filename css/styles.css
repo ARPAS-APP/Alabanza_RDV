@@ -1224,3 +1224,14 @@ html, body { overscroll-behavior-y: none; }
 body { min-height: 100svh; }
 .nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); transform: translate3d(0, 0, 0); will-change: transform; }
 .nav-set { transform: translate3d(0, 0, 0); }
+
+/* Discipulado: ficha de servicio */
+.d-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.d-chips .chip { min-height: 38px; }
+.d-stepper { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.d-stepper .btn { width: 48px; min-height: 44px; margin: 0; font-size: 20px; flex: 0 0 auto; }
+.d-stepper b { min-width: 36px; text-align: center; font-size: 22px; font-variant-numeric: tabular-nums; }
+.d-serv { display: block; color: var(--acento-2); }
+.d-serv.sin { color: var(--texto-3); }
+.d-servicio b { display: block; margin-top: 4px; }
+.d-bit .info b, .d-bit .info small { white-space: normal; overflow: visible; text-overflow: clip; }

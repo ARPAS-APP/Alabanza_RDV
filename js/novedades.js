@@ -14,6 +14,23 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-07-ficha-servicio',
+    fecha: '2026-11-07',
+    modulo: 'discipulado',
+    titulo: 'Ficha de servicio',
+    resumen: 'Cuéntale a tu mentor en qué ministerio sirves y a cuántas personas discipulas. Toma 1 minuto.',
+    pasos: [
+      { t: 'Ábrela desde Inicio', d: 'Toca "📝 Cuéntanos dónde sirves".' },
+      { t: 'Marca tus ministerios', d: 'Todos donde sirves, y si sirves o eres líder.' },
+      { t: 'Cuántas personas discipulas', d: 'Usa − y + para contarlas, dentro o fuera de la app.' },
+      { t: 'Guarda', d: 'Cada actualización queda en tu bitácora con la fecha. La ven solo tú, tu mentor y quien administra.' },
+      { t: 'Pide que la actualicen', d: 'En Mis discípulos toca "📝 Pedir que actualicen su ficha": les llega un aviso.', para: ['mentor', 'pastor'] },
+      { t: 'Mira el resumen', d: 'En Mis discípulos ves cuántos sirven, en qué ministerios y a cuántas personas discipulan. En la ficha de cada uno está su bitácora.', para: ['mentor', 'pastor'] },
+    ],
+    ir: '#/d/servicio',
+    irTxt: 'Llenar mi ficha',
+  },
+  {
     id: '2026-11-07-cuentas-con-clave',
     fecha: '2026-11-07',
     modulo: 'todos',

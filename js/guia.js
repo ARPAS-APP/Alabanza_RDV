@@ -30,6 +30,7 @@ export const GUIA = [
       { b: 'Devocional de hoy', d: 'Toca "Empezar devocional" para leerlo y responderlo. Si ya lo hiciste dice "Completado · ver de nuevo".' },
       { b: '🤝 Próxima mentoría', d: 'Fecha y hora de tu próxima mentoría. Si dice "Sin agendar", tócala para proponer una fecha.' },
       { b: '🎯 Reto activo', d: 'El reto que estás haciendo y cuántos días llevas. Tócalo para marcar el día de hoy.' },
+      { b: '📝 Cuéntanos dónde sirves', d: 'Aparece si todavía no llenas tu ficha de servicio o si tu mentor te pidió actualizarla. Tócala para llenarla.' },
       { b: '📖 Biblia', d: 'Abre la Biblia en 4 versiones en español.' },
       { b: '❓ Preguntas sin responder', d: 'Aparece cuando alguien hizo una pregunta en el muro y nadie la ha respondido. Tócala para ayudar.' },
       { b: '🌱 Mis discípulos', d: 'Tu panel de mentor: cómo va cada discípulo. Si dice "Invita a tus discípulos con tu link", aún no tienes ninguno.', para: ['mentor'] },
@@ -106,15 +107,29 @@ export const GUIA = [
     ],
   },
   {
+    modulo: 'discipulado', id: 'servicio', ico: '📝', titulo: 'Mi servicio', ir: '#/d/servicio',
+    intro: 'Tu ficha de servicio: en qué ministerios sirves y a cuántas personas discipulas.',
+    items: [
+      { b: 'Ministerios', d: 'Toca todos los ministerios donde sirves. Se marcan en dorado.' },
+      { b: 'Sirvo / Soy líder / Aún no sirvo', d: 'Qué haces en esos ministerios.' },
+      { b: '− y +', d: 'Cuántas personas discipulas tú, dentro o fuera de la app.' },
+      { b: '¿Algo que tu mentor deba saber?', d: 'Opcional. Por ejemplo, si quieres empezar a servir en otro lugar.' },
+      { b: 'Guardar mi ficha', d: 'Guarda tus respuestas. Las ven solo tú, tu mentor y quien administra.' },
+      { b: 'Mi bitácora', d: 'Cada vez que actualizas tu ficha queda una línea con la fecha, para ver cómo ha cambiado tu servicio.' },
+    ],
+  },
+  {
     modulo: 'discipulado', id: 'discipulos', ico: '🌱', titulo: 'Mis discípulos', ir: '#/d/discipulos', para: ['mentor'],
     intro: 'Tu panel de mentor. Se abre desde Inicio.',
     items: [
       { b: 'Quieren ser tus discípulos', d: 'Personas que se registraron con tu link. "Aprobar" las hace tus discípulas; "No es mi discípulo" pasa la solicitud a quien administra.' },
       { b: 'Números de arriba', d: 'Cuántos discípulos tienes, cuántos hicieron hoy el devocional y cuántas mentorías tienes esta semana.' },
       { b: '⚠️ Alerta', d: 'Quién lleva días sin hacer el devocional o no tiene mentoría agendada.' },
-      { b: 'Cada discípulo', d: 'Tócalo para abrir su ficha.' },
+      { b: 'Cada discípulo', d: 'Tócalo para abrir su ficha. Debajo de su nombre ves 📝 dónde sirve y a cuántas personas discipula.' },
+      { b: 'Sirven / Personas que ellos discipulan / Fichas llenas', d: 'Resumen de las fichas de servicio de tus discípulos. Debajo, cuántos sirven en cada ministerio.' },
+      { b: '📝 Pedir que actualicen su ficha', d: 'Les llega un aviso a tus discípulos y les aparece en Inicio para que actualicen su ficha. Ves cuándo fue tu último pedido.' },
       { b: '📋 Copiar mi link de invitación', d: 'Copia tu link para enviarlo por WhatsApp. Quien se registre con él te aparece a ti.' },
-      { b: 'Mis discípulos / Toda la iglesia', d: 'Cambia entre tus discípulos y todos los de la iglesia, con su mentor.', para: ['pastor'] },
+      { b: 'Mis discípulos / Toda la iglesia', d: 'Cambia entre tus discípulos y todos los de la iglesia, con su mentor. En "Toda la iglesia", el pedido de ficha les llega a todos.', para: ['pastor'] },
     ],
   },
   {
@@ -123,9 +138,11 @@ export const GUIA = [
     items: [
       { b: 'Racha, retos y nivel', d: 'Cómo va en su devocional y en sus retos.' },
       { b: '＋ Agendar mentoría', d: 'Agenda directo con esa persona.' },
+      { b: '📝 Servicio en la iglesia', d: 'Dónde sirve, si es líder, a cuántas personas discipula y lo que te quiso contar.' },
       { b: 'Ruta de crecimiento', d: 'Elige su nivel (Raíz, Tallo, Rama o Fruto) cuando veas que está listo.' },
       { b: '🔒 Mis notas', d: 'Notas de seguimiento que solo ves tú. Escribe y toca "Guardar nota". Puedes borrarlas.' },
       { b: 'Lo que compartió contigo', d: 'Sus devocionales, peticiones y mensajes para ti o para el grupo.' },
+      { b: 'Bitácora de servicio', d: 'Cada actualización de su ficha, con fecha: así ves cómo ha crecido su servicio.' },
     ],
   },
   {

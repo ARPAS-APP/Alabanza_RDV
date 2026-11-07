@@ -158,6 +158,26 @@ async function aprobado(id: string, mentor: string) {
   return enviar(ids, 'd_solicitudes', { title: '✅ Nuevo discípulo', body: `${primer(nom(mentor))} aprobó a ${nom(id)} como su discípulo.`, url: '#/d/inicio', tag: 'apr-' + id });
 }
 
+// Pedido de actualizar la ficha de servicio
+async function encuesta(id: string) {
+  const { data: e } = await sb.from('disc_encuestas').select('mentor_id, para_todos, mensaje').eq('id', id).maybeSingle();
+  if (!e) return 0;
+  let ids: string[];
+  if (e.para_todos) {
+    const { data } = await sb.from('modulos_acceso').select('perfil_id').eq('modulo', 'discipulado');
+    ids = (data ?? []).map((a: any) => a.perfil_id);
+  } else {
+    const { data } = await sb.from('disc_discipulos').select('discipulo_id').eq('mentor_id', e.mentor_id);
+    ids = (data ?? []).map((d: any) => d.discipulo_id);
+  }
+  const { data: m } = await sb.from('profiles').select('nombre').eq('id', e.mentor_id).maybeSingle();
+  return enviar(ids.filter(x => x !== e.mentor_id), 'd_mentoria', {
+    title: '📝 Actualiza tu ficha de servicio',
+    body: e.mensaje || `${primer(m?.nombre ?? 'Tu mentor')} te pide contar en qué ministerio sirves. Toma 1 minuto.`,
+    url: '#/d/servicio', tag: 'enc-' + id,
+  });
+}
+
 async function devocionalDeHoy() {
   const hoy = hoyPa();
   const { data: d } = await sb.from('disc_devocionales').select('titulo, pasaje_ref').eq('fecha', hoy).maybeSingle();
@@ -199,6 +219,7 @@ Deno.serve(async (req) => {
       case 'comentario': n = await comentario(b.id); break;
       case 'post': n = await post(b.id); break;
       case 'solicitud': n = await solicitud(b.id); break;
+      case 'encuesta': n = await encuesta(b.id); break;
       case 'aprobado': n = await aprobado(b.id, b.mentor); break;
       case 'devocional': n = await devocionalDeHoy(); break;
       case 'racha': n = await racha(); break;
