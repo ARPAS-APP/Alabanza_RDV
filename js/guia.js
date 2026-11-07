@@ -168,7 +168,7 @@ export const GUIA = [
       { b: 'Nombre', d: 'Cómo te ven los demás. Cámbialo y toca "Guardar".' },
       { b: '🎨 Apariencia', d: 'Automático, Claro u Oscuro.' },
       { b: '✨ Novedades y guías', d: 'Lo nuevo de la app, con sus pasos.' },
-      { b: '👨‍👩‍👧 Cuentas en este teléfono', d: 'Para familias que comparten celular: agrega otra cuenta y cambia con un toque, sin contraseña.' },
+      { b: '👨‍👩‍👧 Cuentas en este teléfono', d: 'Para familias que comparten celular: agrega otra cuenta y cambia con un toque. Las cuentas con 🔒 piden su contraseña: las de mentores y administradores siempre, y cualquiera puede activarlo en "Pedir mi contraseña para volver a mi cuenta".' },
       { b: '🔔 Notificaciones', d: 'Activa los avisos en este celular y elige cuáles quieres recibir.' },
       { b: '📅 Mis mentorías en el calendario', d: 'Suscribe el calendario de tu celular a tus mentorías.' },
       { b: 'Cambiar contraseña', d: 'Pone una contraseña nueva a tu cuenta.' },

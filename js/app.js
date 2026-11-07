@@ -355,6 +355,8 @@ async function arrancar(session) {
   try { sessionStorage.removeItem('arpas.agregando'); } catch { /* nada */ }
   if (!perfil || perfil.estado !== 'aprobado') { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(); }
   await cargarModulos();
+  // Mentores y administradores: su cuenta siempre pide contraseña al volver a ella en un teléfono compartido
+  if (claveObligatoria()) cuentas.proteger(st.uid, true, true);
   if (!tieneAlabanza() && !discRol()) { $('#nav').hidden = true; $('#navD').hidden = true; return vistaPendiente(true); }
   if (tieneAlabanza()) {
     await Promise.all([cargarPerfiles(), cargarTipos()]);
@@ -398,48 +400,98 @@ async function cargarPerfiles() {
 // Login / registro
 // =====================================================================
 // ---------- Varias cuentas en el mismo teléfono ----------
+// Espera una tarea como máximo unos segundos (para que nada deje la app colgada)
+const conTiempo = (p, ms = 3000) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
+const candado = c => (cuentas.necesitaClave(c) ? ' 🔒' : '');
 function htmlCuentasGuardadas() {
   const l = cuentas.lista();
   if (!l.length) return '';
   const agregando = (() => { try { return sessionStorage.getItem('arpas.agregando'); } catch { return null; } })();
   return `<div class="cuentas-auth">
     <span class="cuentas-t">${agregando ? 'Agregando otra cuenta. ¿O vuelves a…?' : 'Cuentas en este teléfono'}</span>
-    ${l.map(c => `<button type="button" class="cuenta-fila" data-cuenta="${esc(c.id)}"><span class="avatar sm">${esc(iniciales(c.nombre || c.email))}</span><span class="info"><b>${esc(c.nombre || c.email)}</b><small>${esc(c.email || '')}</small></span><span aria-hidden="true">›</span></button>`).join('')}
+    ${l.map(c => `<button type="button" class="cuenta-fila" data-cuenta="${esc(c.id)}"><span class="avatar sm">${esc(iniciales(c.nombre || c.email))}</span><span class="info"><b>${esc(c.nombre || c.email)}${candado(c)}</b><small>${esc(c.email || '')}</small></span><span aria-hidden="true">›</span></button>`).join('')}
     <span class="cuentas-t" style="margin-top:6px">${agregando ? 'Entra con la otra cuenta:' : 'O entra con otra cuenta:'}</span>
   </div>`;
 }
+// Pide la contraseña de una cuenta protegida y entra
+function modalClaveCuenta(c) {
+  const body = abrirModal(`🔒 Entrar como ${c.nombre || c.email}`, `
+    <form id="fClaveCta">
+      <p class="ayuda" style="margin-top:0">Esta cuenta pide su contraseña para entrar${c.obligatoria ? ', porque tiene información privada (por ejemplo, notas de discipulado)' : ''}.</p>
+      <input type="email" name="usuario" value="${esc(c.email || '')}" autocomplete="username" hidden>
+      <label for="cClave">Contraseña</label>
+      <input id="cClave" name="clave" type="password" required minlength="6" autocomplete="current-password">
+      <div id="cClaveMsg"></div>
+      <button class="btn prim blk">Entrar</button>
+    </form>`);
+  setTimeout(() => $('#cClave', body)?.focus(), 50);
+  $('#fClaveCta', body).onsubmit = ev => {
+    ev.preventDefault();
+    const btn = ev.target.querySelector('button.prim');
+    ocupado(btn, async () => {
+      try {
+        await cuentas.entrarConClave(c.id, $('#cClave', body).value);
+        try { sessionStorage.removeItem('arpas.agregando'); } catch { /* nada */ }
+        await conTiempo(idb.limpiar());
+        location.hash = ''; location.reload();
+      } catch (e) {
+        $('#cClaveMsg', body).innerHTML = `<div class="msg err">${esc(e.message || 'No se pudo entrar')}</div>`;
+      }
+    });
+  };
+}
 async function cambiarCuenta(id) {
   if (id === st.uid) return;
+  const c = cuentas.buscar(id);
+  if (!c) return;
+  if (cuentas.necesitaClave(c)) return modalClaveCuenta(c);
   const previa = st.uid;
   try { sessionStorage.removeItem('arpas.agregando'); } catch { /* nada */ }
   try {
-    await idb.limpiar();
+    await conTiempo(idb.limpiar());
     await cuentas.entrar(id);
     location.hash = '';
     location.reload();
   } catch (e) {
     // Si no se pudo, volver a la cuenta en la que estaba
-    if (previa) { try { await cuentas.entrar(previa); } catch { /* queda en la entrada */ } }
+    if (previa && !cuentas.necesitaClave(cuentas.buscar(previa))) { try { await cuentas.entrar(previa); } catch { /* queda en la entrada */ } }
     if (e.vencida) { if (!previa) vistaAuth('login', { txt: e.message, err: true, email: e.email }); else toast(e.message); }
     else toast('No se pudo cambiar de cuenta. Revisa tu conexión.');
   }
 }
 async function agregarCuenta() {
   try { sessionStorage.setItem('arpas.agregando', st.uid || '1'); } catch { /* nada */ }
-  await idb.limpiar();
+  await conTiempo(idb.limpiar());
   cuentas.soltarLocal();
   location.hash = '';
   location.reload();
 }
+// ¿Esta cuenta debe pedir contraseña sí o sí? Mentores (tienen notas privadas) y administradores
+const claveObligatoria = () => ['mentor', 'pastor'].includes(discRol()) || esAdmin();
 function htmlCuentasPerfil() {
   const otras = cuentas.lista().filter(c => c.id !== st.uid);
+  const yo = cuentas.buscar(st.uid);
+  const oblig = claveObligatoria(), prot = oblig || !!yo?.protegida;
   return `<div class="card cuentas-card">
     <b>👨‍👩‍👧 Cuentas en este teléfono</b>
-    <p class="ayuda" style="margin:4px 0 8px">Para la familia que comparte celular: cambia de cuenta con un toque, sin escribir la contraseña.</p>
-    <div class="cuenta-fila actual"><span class="avatar sm">${esc(iniciales(st.perfil?.nombre))}</span><span class="info"><b>${esc(st.perfil?.nombre || '')}</b><small>Usando ahora</small></span></div>
-    ${otras.map(c => `<div class="cuenta-fila-w"><button type="button" class="cuenta-fila" data-cuenta="${esc(c.id)}"><span class="avatar sm">${esc(iniciales(c.nombre || c.email))}</span><span class="info"><b>${esc(c.nombre || c.email)}</b><small>Toca para cambiar</small></span><span aria-hidden="true">⇄</span></button><button type="button" class="cuenta-quitar" data-quitar="${esc(c.id)}" aria-label="Quitar a ${esc(c.nombre || c.email)} de este teléfono">✕</button></div>`).join('')}
+    <p class="ayuda" style="margin:4px 0 8px">Para la familia que comparte celular: cambia de cuenta con un toque. Las cuentas con 🔒 piden su contraseña.</p>
+    <div class="cuenta-fila actual"><span class="avatar sm">${esc(iniciales(st.perfil?.nombre))}</span><span class="info"><b>${esc(st.perfil?.nombre || '')}${prot ? ' 🔒' : ''}</b><small>Usando ahora</small></span></div>
+    ${otras.map(c => `<div class="cuenta-fila-w"><button type="button" class="cuenta-fila" data-cuenta="${esc(c.id)}"><span class="avatar sm">${esc(iniciales(c.nombre || c.email))}</span><span class="info"><b>${esc(c.nombre || c.email)}${candado(c)}</b><small>${cuentas.necesitaClave(c) ? 'Pide contraseña' : 'Toca para cambiar'}</small></span><span aria-hidden="true">⇄</span></button><button type="button" class="cuenta-quitar" data-quitar="${esc(c.id)}" aria-label="Quitar a ${esc(c.nombre || c.email)} de este teléfono">✕</button></div>`).join('')}
+    <label class="check" style="margin:4px 0 0"><input type="checkbox" id="chkProteger" ${prot ? 'checked' : ''} ${oblig ? 'disabled' : ''}> Pedir mi contraseña para volver a mi cuenta</label>
+    ${oblig ? `<p class="ayuda" style="margin:0">Siempre activo en tu cuenta porque ${esAdmin() && !['mentor', 'pastor'].includes(discRol()) ? 'eres administrador' : 'tienes notas privadas de tus discípulos'}.</p>` : ''}
     <button type="button" class="btn blk" id="bAgregarCuenta" style="margin-bottom:0">＋ Agregar otra cuenta</button>
   </div>`;
+}
+// Cerrar sesión sin quedarse colgado: cada paso tiene tiempo máximo y al final se limpia sí o sí
+async function cerrarSesion(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Cerrando sesión…'; }
+  if (st.uid) cuentas.olvidar(st.uid);
+  await conTiempo(quitarPushMio());
+  await conTiempo(idb.limpiar());
+  await conTiempo(sb.auth.signOut({ scope: 'local' }), 4000);
+  cuentas.soltarLocal();
+  location.hash = '';
+  location.reload();
 }
 
 function vistaAuth(modo = 'login', aviso = null, pre = null) {
@@ -525,7 +577,7 @@ function vistaPendiente(sinModulo = false) {
   </div>`;
   app.onclick = null;
   $('#bRev').onclick = () => sb.auth.getSession().then(({ data }) => arrancar(data.session));
-  $('#bSalir').onclick = () => sb.auth.signOut();
+  $('#bSalir').onclick = e => cerrarSesion(e.currentTarget);
 }
 
 function modalNuevaClave() {
@@ -4487,13 +4539,12 @@ function vistaPerfil() {
   };
   if (ala) pintarMisTonos();
   $('#bClave').onclick = modalNuevaClave;
-  $('#bSalir').onclick = async () => {
+  $('#bSalir').onclick = e => {
     const otras = cuentas.lista().filter(c => c.id !== st.uid).length;
     if (otras && !confirm('Se cerrará la sesión de esta cuenta y se quitará de este teléfono. Las demás cuentas siguen guardadas.')) return;
-    cuentas.olvidar(st.uid);
-    await quitarPushMio();
-    await idb.limpiar(); await sb.auth.signOut(); location.hash = '';
+    cerrarSesion(e.currentTarget);
   };
+  $('#chkProteger').onchange = e => { cuentas.proteger(st.uid, e.target.checked); toast(e.target.checked ? '🔒 Tu cuenta pedirá contraseña' : 'Tu cuenta ya no pedirá contraseña'); };
   $('#bAgregarCuenta').onclick = () => agregarCuenta();
   $('.cuentas-card').onclick = e => {
     const q = e.target.closest('[data-quitar]');

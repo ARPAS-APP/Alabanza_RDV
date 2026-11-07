@@ -14,6 +14,21 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-07-cuentas-con-clave',
+    fecha: '2026-11-07',
+    modulo: 'todos',
+    titulo: 'Cuentas con contraseña al cambiar',
+    resumen: 'En un teléfono compartido, las cuentas de mentores y administradores ahora piden su contraseña para entrar. Así nadie más ve sus notas privadas.',
+    pasos: [
+      { t: 'Qué cuentas piden contraseña', d: 'Las de mentores y administradores, siempre. Aparecen con 🔒.' },
+      { t: 'Protege la tuya si quieres', d: 'En Mi perfil → Cuentas en este teléfono, marca "Pedir mi contraseña para volver a mi cuenta".' },
+      { t: 'Al cambiar', d: 'Toca la cuenta con 🔒, escribe su contraseña y entra.' },
+      { t: 'Cerrar sesión', d: 'Ahora cierra más rápido, incluso si la conexión está lenta.' },
+    ],
+    ir: '#/perfil',
+    irTxt: 'Ir a Mi perfil',
+  },
+  {
     id: '2026-11-07-guia-app',
     fecha: '2026-11-07',
     modulo: 'discipulado',
@@ -33,7 +48,7 @@ export const NOVEDADES = [
     fecha: '2026-11-07',
     modulo: 'todos',
     titulo: 'Varias cuentas en el mismo teléfono',
-    resumen: 'Si en tu familia comparten celular, por ejemplo mamá e hija, pueden tener las dos cuentas y cambiar con un toque, sin escribir la contraseña.',
+    resumen: 'Si en tu familia comparten celular, por ejemplo mamá e hija, pueden tener las dos cuentas y cambiar con un toque.',
     pasos: [
       { t: 'Abre Mi perfil', d: 'Busca la tarjeta "Cuentas en este teléfono".' },
       { t: 'Agrega la otra cuenta', d: 'Toca "＋ Agregar otra cuenta" y entra con el correo y la contraseña de la otra persona. Se hace una sola vez.' },
