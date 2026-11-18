@@ -14,6 +14,20 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-18-diagramas-acordes',
+    fecha: '2026-11-18',
+    modulo: 'alabanza',
+    titulo: 'Toca un acorde y mira cómo se hace',
+    resumen: 'En la letra y en el cifrado de cada canción, al tocar un acorde ves cómo se toca en guitarra y en piano, y lo puedes escuchar.',
+    pasos: [
+      { t: 'Abre una canción', d: 'En Canciones, entra a cualquier canción con acordes.' },
+      { t: 'Toca un acorde', d: 'En 📝 Letra o en 🎼 Cifrado, toca el acorde que quieras (por ejemplo Am9 o F#7b9).' },
+      { t: 'Guitarra', d: 'Ves la posición más común y otras más arriba en el mástil: el número en cada punto es el dedo, ○ cuerda al aire, × no se toca.' },
+      { t: 'Piano', d: 'Ves las teclas: en azul el bajo (mano izquierda) y en dorado el acorde (mano derecha), con el nombre de cada nota.' },
+      { t: 'Escúchalo', d: 'Toca 🔊 Escuchar o 🎶 Nota por nota. Si cambiaste el tono de la canción, el acorde ya viene transpuesto.' },
+    ],
+  },
+  {
     id: '2026-11-07-ficha-servicio',
     fecha: '2026-11-07',
     modulo: 'discipulado',
