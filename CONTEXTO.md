@@ -72,7 +72,7 @@ No existen 005 ni 006. Todos se pueden volver a ejecutar sin borrar datos.
 
 ## Funciones actuales
 1. **Muro:** comunicados, frases, imágenes y videos de YouTube o Drive. Publicaciones fijadas, comentarios y reacciones en tiempo real. Banners de "Te toca servir" y "En vivo ahora". Tarjeta "Programa" con el resumen de un día.
-2. **Canciones:** vista 📝 Letra / 🎼 Cifrado (grilla de compases estilo iReal: secciones A/B/C, 4 compases por fila, se transpone). Si la canción no tiene cifrado guardado se genera automático desde la letra (1 acorde = 1 compás) y el admin lo ajusta con ✏️ (sintaxis `*A Verso` / `| C#m | B/D# | E |`, `%` repite). Letra con acordes (`[G]letra` o acordes sobre la línea), transposición, cifrado americano o latino, tamaño de letra, notas por instrumento y tono guardado por cantante.
+2. **Canciones:** vista 📝 Letra / 🎼 Cifrado (grilla de compases estilo iReal: secciones A/B/C, 4 compases por fila, se transpone). Si la canción no tiene cifrado guardado se genera automático desde la letra (1 acorde = 1 compás) y el admin lo ajusta con ✏️ (sintaxis `*A Verso` / `| C#m | B/D# | E |`, `%` repite). Letra con acordes (`[G]letra` o acordes sobre la línea), transposición, cifrado americano o latino, tamaño de letra, notas por instrumento y tono guardado por cantante. **Diagramas de acordes** (`js/diagramas.js`): tocar un acorde en la letra o el cifrado abre cómo se hace en guitarra (formas abiertas conocidas + búsqueda de posiciones tocables) y en piano (notas desde la fórmula), con sonido; los acordes tocables llevan `class="ac" data-ac="<acorde americano transpuesto>"`.
 3. **Agenda:**
    - Calendario mensual con tipos de día:
      - 📖 Estudio bíblico: miércoles 8:00 pm, ensayo 6:30 pm.

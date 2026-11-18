@@ -6,6 +6,7 @@ import {
   seccionesDe, componerMedley,
 } from './acordes.js';
 import { generarCifrado, renderCifrado, erroresCifrado, AYUDA_CIFRADO, leerIreal } from './cifrado.js';
+import { htmlAcorde, activarAcorde } from './diagramas.js';
 import { crearReproductor, desbloquearAudio } from './audio-ref.js';
 import { crearDiscipulado } from './discipulado.js';
 import { NOVEDADES } from './novedades.js';
@@ -203,6 +204,21 @@ function abrirModal(titulo, html, { visor = false } = {}) {
   return body;
 }
 function cerrarModal() { if (dlg.open) dlg.close(); }
+
+// ---------- Diagramas de acordes: tocar un acorde de la letra o del cifrado ----------
+// (no dentro de otra ventana, para no reemplazar un editor abierto)
+function abrirDiagrama(el) {
+  const nombre = el.dataset.ac;
+  const body = abrirModal(el.textContent.trim() || nombre, htmlAcorde(nombre, el.textContent.trim(), ajustes.latino));
+  activarAcorde(body, nombre);
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('.ac[data-ac]');
+  if (el && !el.closest('#modal')) { e.preventDefault(); abrirDiagrama(el); }
+});
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.ac[data-ac]') && !e.target.closest('#modal')) { e.preventDefault(); abrirDiagrama(e.target); }
+});
 
 // ---------- Novedades (guía de cada función nueva; la lista está en novedades.js) ----------
 const NOV_KEY = 'arpas.novedades';
