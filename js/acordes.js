@@ -82,6 +82,26 @@ export function transponerAcorde(acorde, semis, bemoles, latino = false) {
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/** Acorde que se puede tocar para ver su diagrama (data-ac guarda el nombre en cifrado americano). */
+const acTocable = (visto, americano) => `<span class="ac" data-ac="${esc(americano)}" role="button" tabindex="0">${esc(visto)}</span>`;
+
+/** Como transponerLineaDeAcordes, pero en HTML y con cada acorde tocable (mantiene las columnas). */
+function lineaAcordesHTML(linea, semis, bemoles, latino) {
+  let out = '', col = 0;
+  const re = /\S+/g;
+  let m;
+  while ((m = re.exec(linea))) {
+    const p = partirTok(m[0]);
+    const ok = esAcorde(p.ch);
+    const visto = ok ? p.pre + transponerAcorde(p.ch, semis, bemoles, latino) + p.post : m[0];
+    if (col < m.index) { out += ' '.repeat(m.index - col); col = m.index; }
+    else if (col) { out += ' '; col++; }
+    out += ok ? esc(p.pre) + acTocable(transponerAcorde(p.ch, semis, bemoles, latino), transponerAcorde(p.ch, semis, bemoles, false)) + esc(p.post) : esc(visto);
+    col += visto.length;
+  }
+  return out;
+}
+
 /** Separa paréntesis pegados a un acorde: "(Fm" → { pre: '(', ch: 'Fm', post: '' } */
 export function partirTok(t) {
   const m = /^([(]*)(.*?)([)]*)$/.exec(t);
@@ -197,7 +217,7 @@ export function renderLetra(texto, { semis = 0, bemoles = false, acordes = true,
     if (sec !== null) { const tipo = tipoSeccion(sec); html.push(`<div class="l-seccion${tipo ? ' sec-' + tipo : ''}"><span>${esc(sec)}</span></div>`); continue; }
 
     if (esLineaDeAcordes(linea)) {
-      if (acordes) html.push(`<div class="l-acordes mono">${esc(transponerLineaDeAcordes(linea, semis, bemoles, latino))}</div>`);
+      if (acordes) html.push(`<div class="l-acordes mono">${lineaAcordesHTML(linea, semis, bemoles, latino)}</div>`);
       continue;
     }
 
@@ -219,10 +239,13 @@ export function renderLetra(texto, { semis = 0, bemoles = false, acordes = true,
       // Cada palabra es un bloque para que las líneas largas puedan saltar de renglón;
       // el acorde queda pegado a la primera palabra que le sigue.
       const seg = (ch, txt) =>
-        `<span class="seg"><span class="ch">${ch ? esc(ch) : '&nbsp;'}</span><span class="ly">${txt ? esc(txt).replace(/ /g, '&nbsp;') : '&nbsp;'}</span></span>`;
+        `<span class="seg"><span class="ch">${ch || '&nbsp;'}</span><span class="ly">${txt ? esc(txt).replace(/ /g, '&nbsp;') : '&nbsp;'}</span></span>`;
       const segs = [];
       for (const p of partes) {
-        const ch = p.acorde ? transponerAcorde(p.acorde, semis, bemoles, latino) : '';
+        const ac = p.acorde ? p.acorde.trim() : '';
+        const ch = !ac ? '' : esAcorde(ac)
+          ? acTocable(transponerAcorde(ac, semis, bemoles, latino), transponerAcorde(ac, semis, bemoles, false))
+          : esc(transponerAcorde(ac, semis, bemoles, latino));
         const palabras = p.txt.match(/\S*\s*/g).filter(Boolean);
         if (!palabras.length) { segs.push(seg(ch, '')); continue; }
         palabras.forEach((w, i) => segs.push(seg(i === 0 ? ch : '', w)));

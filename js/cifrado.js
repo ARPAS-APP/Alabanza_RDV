@@ -151,14 +151,16 @@ export function erroresCifrado(texto) {
 }
 
 // Separa un acorde ya transpuesto en raíz / calidad / bajo para dibujarlo como en iReal
-function acordeHTML(ac) {
+// americano: el mismo acorde en cifrado americano, para abrir su diagrama al tocarlo
+function acordeHTML(ac, americano) {
   if (ac === 'N.C.') return '<span class="cf-ac cf-nc">N.C.</span>';
   if (ac === '/') return '<span class="cf-ac cf-pausa">/</span>';
   const m = /^((?:Do|Re|Mi|Fa|Sol|La|Si|[A-G])[#b]?)(.*?)(?:\/((?:Do|Re|Mi|Fa|Sol|La|Si|[A-G])[#b]?))?$/.exec(ac);
   if (!m) return `<span class="cf-ac"><span class="cf-raiz">${esc(ac)}</span></span>`;
   const [, raiz, cal, bajo] = m;
   const alt = (n, sup) => n.replace('#', sup ? '<sup>♯</sup>' : '♯').replace(/(?<=.)b$/, sup ? '<sup>♭</sup>' : '♭');
-  return `<span class="cf-ac"><span class="cf-raiz">${alt(raiz, true)}</span>${cal ? `<span class="cf-cal">${esc(cal)}</span>` : ''}${bajo ? `<span class="cf-bajo">/${alt(bajo)}</span>` : ''}</span>`;
+  const toque = americano ? ` ac" data-ac="${esc(americano)}" role="button" tabindex="0` : '';
+  return `<span class="cf-ac${toque}"><span class="cf-raiz">${alt(raiz, true)}</span>${cal ? `<span class="cf-cal">${esc(cal)}</span>` : ''}${bajo ? `<span class="cf-bajo">/${alt(bajo)}</span>` : ''}</span>`;
 }
 
 const MARCA = { coda: '⊕', segno: '§', fermata: '⌒' };
@@ -179,7 +181,7 @@ export function renderCifrado(texto, { semis = 0, bemoles = false, latino = fals
     const centro = c.repite === 1 ? '<span class="cf-sim" title="Repite el compás anterior">𝄎</span>'
       : c.repite === 2 ? '<span class="cf-sim cf-sim2" title="Repite los dos compases anteriores">𝄏</span>'
       : c.repite === 3 ? ''
-      : c.ac.length ? c.ac.map(a => acordeHTML(t(a))).join('') : '';
+      : c.ac.length ? c.ac.map(a => acordeHTML(t(a), esAcorde(a) ? (semis ? transponerAcorde(a, semis, bemoles, false) : a) : null)).join('') : '';
     return `<div class="${cls}">
       ${c.izq ? `<span class="cf-bar izq ${c.izq}"></span>` : ''}${c.der ? `<span class="cf-bar der ${c.der}"></span>` : ''}
       ${c.casilla ? `<span class="cf-casilla">${c.casilla}.</span>` : ''}
