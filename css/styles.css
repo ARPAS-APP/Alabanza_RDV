@@ -1243,6 +1243,30 @@ body { min-height: 100svh; }
 .guia-video figcaption { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 14px; }
 .guia-video figcaption small { opacity: .7; white-space: nowrap; }
 
+/* ---------- Descargar en PDF (hoja para imprimir) ---------- */
+#hojaPDF { display: none; }
+@media print {
+  @page { size: letter; margin: 14mm 14mm 16mm; }
+  body.imprimiendo > *:not(#hojaPDF) { display: none !important; }
+  body.imprimiendo { background: #fff !important; color: #000 !important; padding: 0 !important; }
+  body.imprimiendo #hojaPDF { display: block; color: #000; font-family: Arial, Helvetica, sans-serif; }
+  #hojaPDF .pdf-cab { border-bottom: 2px solid #000; margin-bottom: 10px; padding-bottom: 6px; }
+  #hojaPDF .pdf-cab h1 { font-size: 20pt; margin: 0; color: #000; }
+  #hojaPDF .pdf-cab p { margin: 3px 0 0; font-size: 10.5pt; color: #333; }
+  #hojaPDF .letra { --fuente-letra: 12pt; font-size: 12pt; line-height: 1.3; padding: 0; color: #000; }
+  #hojaPDF .letra .mono { overflow: visible; white-space: pre; font-size: 10.5pt; }
+  #hojaPDF .letra .l-acordes, #hojaPDF .letra .l-chordpro .ch { color: #000; font-weight: 700; }
+  #hojaPDF .letra .l-seccion { color: #000; border-bottom: 1px solid #999; font-size: 9pt; break-after: avoid; page-break-after: avoid; }
+  #hojaPDF .letra .l-acordes { break-after: avoid; page-break-after: avoid; }
+  #hojaPDF .letra .l-letra, #hojaPDF .letra .l-chordpro { break-inside: avoid; }
+  #hojaPDF .letra.sin-acordes .l-acordes { display: none; }
+  #hojaPDF .cf-sec, #hojaPDF .cf-fila { break-inside: avoid; page-break-inside: avoid; }
+  #hojaPDF .cf-ac, #hojaPDF .cf-texto, #hojaPDF .cf-nombre, #hojaPDF .cf-letra { color: #000 !important; }
+  #hojaPDF .cf-comp, #hojaPDF .cf-bar { border-color: #000 !important; }
+  #hojaPDF .l-seccion span, #hojaPDF .cf-sec-h, #hojaPDF .cf-sec-h * { background: none !important; color: #000 !important; border-color: #000 !important; padding-left: 0 !important; }
+  #hojaPDF .pdf-pie { margin-top: 14px; font-size: 8pt; color: #666; text-align: center; }
+  #hojaPDF * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 /* ---------- Diagramas de acordes (tocar un acorde) ---------- */
 .ac[data-ac] { cursor: pointer; border-radius: 4px; }
 .ac[data-ac]:hover, .ac[data-ac]:focus-visible { background: var(--suave); outline: none; text-decoration: underline dotted; text-underline-offset: 3px; }
