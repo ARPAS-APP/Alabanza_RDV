@@ -14,6 +14,19 @@
 // =====================================================================
 export const NOVEDADES = [
   {
+    id: '2026-11-18-descargar-pdf',
+    fecha: '2026-11-18',
+    modulo: 'alabanza',
+    titulo: 'Descarga cualquier canción en PDF',
+    resumen: 'Cada canción tiene un botón ⬇ para guardarla en PDF o imprimirla, en el tono que elegiste.',
+    pasos: [
+      { t: 'Abre la canción', d: 'Elige el tono que vas a tocar con − y + o con el tono del cantante.' },
+      { t: 'Elige la vista', d: '📝 Letra (con o sin acordes 🎸) o 🎼 Cifrado: el PDF sale igual a lo que ves.' },
+      { t: 'Toca ⬇', d: 'Está junto a A− y A+. Se abre la ventana de impresión del celular o la computadora.' },
+      { t: 'Guarda como PDF', d: 'En iPhone toca Compartir → Guardar en Archivos; en Android y computadora elige "Guardar como PDF".' },
+    ],
+  },
+  {
     id: '2026-11-07-ficha-servicio',
     fecha: '2026-11-07',
     modulo: 'discipulado',

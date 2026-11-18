@@ -204,6 +204,28 @@ function abrirModal(titulo, html, { visor = false } = {}) {
 }
 function cerrarModal() { if (dlg.open) dlg.close(); }
 
+// ---------- Hoja para imprimir o guardar como PDF ----------
+// Se arma una hoja blanca aparte y se abre el diálogo de impresión del sistema
+// (en el celular y la computadora trae "Guardar como PDF"). El título sugiere el nombre del archivo.
+function imprimirHoja(titulo, html) {
+  document.getElementById('hojaPDF')?.remove();
+  const hoja = document.createElement('div');
+  hoja.id = 'hojaPDF';
+  hoja.innerHTML = html;
+  document.body.appendChild(hoja);
+  const tituloAntes = document.title;
+  document.title = titulo;
+  document.body.classList.add('imprimiendo');
+  const terminar = () => {
+    document.body.classList.remove('imprimiendo');
+    document.title = tituloAntes;
+    hoja.remove();
+    window.removeEventListener('afterprint', terminar);
+  };
+  window.addEventListener('afterprint', terminar);
+  setTimeout(() => window.print(), 50);
+}
+
 // ---------- Novedades (guía de cada función nueva; la lista está en novedades.js) ----------
 const NOV_KEY = 'arpas.novedades';
 const novVistas = () => { try { return new Set(JSON.parse(localStorage.getItem(NOV_KEY) || '[]')); } catch { return new Set(); } };
@@ -1526,6 +1548,7 @@ async function vistaCancion(ctx) {
           ${verCifrado ? '' : `<button class="btn-ico sm ${ajustes.acordes ? 'activo' : ''}" data-acc="acordes" aria-pressed="${ajustes.acordes}" title="Mostrar u ocultar acordes">🎸</button>`}
           <button class="btn-ico sm" data-acc="fuente-" aria-label="Letra más pequeña">A−</button>
           <button class="btn-ico sm" data-acc="fuente+" aria-label="Letra más grande">A+</button>
+          <button class="btn-ico sm" data-acc="pdf" aria-label="Descargar en PDF" title="Descargar en PDF">⬇</button>
         </span>` : ''}
       </div>
       ${verCifrado ? (() => {
@@ -1634,6 +1657,23 @@ async function vistaCancion(ctx) {
       guardarAjustes(); $('.letra')?.style.setProperty('--fuente-letra', ajustes.fuente + 'px');
     }
     else if (acc === 'vista') { ajustes.vista = el.dataset.v; guardarAjustes(); pintar(); }
+    else if (acc === 'pdf') {
+      // Hoja limpia en el tono y la vista que la persona tiene elegidos → "Guardar como PDF"
+      const actual = tonoActual();
+      const bem = actual ? usaBemoles(actual) : false;
+      const verCifrado = ajustes.vista === 'cifrado' && !!(c.letra || c.cifrado);
+      const texto = verCifrado ? (c.cifrado || generarCifrado(c.letra)) : '';
+      const cuerpo = verCifrado
+        ? (texto ? renderCifrado(texto, { semis, bemoles: bem, latino: ajustes.latino }) : '')
+        : (c.letra ? renderLetra(c.letra, { semis, bemoles: bem, acordes: ajustes.acordes, latino: ajustes.latino }) : '');
+      if (!cuerpo) return toast('Esta canción no tiene letra ni cifrado para descargar.', true);
+      const datos = [c.artista, actual ? `Tono: ${tonoTxt(actual)}${semis && original ? ` (original ${tonoTxt(original)})` : ''}` : (semis ? `Tono: ${semis > 0 ? '+' : ''}${semis}` : ''),
+        c.bpm ? `${c.bpm} BPM` : '', c.compas || ''].filter(Boolean).map(esc).join(' · ');
+      imprimirHoja(c.titulo, `
+        <header class="pdf-cab"><h1>${esc(c.titulo)}</h1>${datos ? `<p>${datos}</p>` : ''}</header>
+        <div class="letra${verCifrado ? ' cf-wrap' : ''}${!verCifrado && !ajustes.acordes ? ' sin-acordes' : ''}">${cuerpo}</div>
+        <footer class="pdf-pie">Arpas · Ministerio de Alabanza Roca de Vida</footer>`);
+    }
     else if (acc === 'editar-cifrado') modalCifrado(c, () => pintar());
     else if (acc.startsWith('met-')) metroAccion(acc, c, el);
     else if (acc === 'ar-play') {
